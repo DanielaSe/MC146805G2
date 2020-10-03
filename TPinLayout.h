@@ -16,7 +16,7 @@
  *       LCD Data (OUT)  PA2 --| 9               32 |-- PD3  (OUT) Read Keys 5 (CD Stop, CD Play, CD Pause)
  *        Wind << (OUT)  PA1 --| 10              31 |-- PD2  (OUT) Read Keys 3 (Stop, Pause, Rec)
  *        Wind >> (OUT)  PA0 --| 11              30 |-- PD1  (OUT) Read Keys 2 (Play, <<, >>)
- *  CD Mute State ( ? )  PB0 --| 12              29 |-- PD0  (OUT) Read Keys 1 (Reverse Mode, Rec Mode, Direction)
+ *     Mute State ( ? )  PB0 --| 12              29 |-- PD0  (OUT) Read Keys 1 (Reverse Mode, Rec Mode, Direction)
  *       Wind Dir (OUT)  PB1 --| 13              28 |-- PC0  
  * Relay FastWind (OUT)  PB2 --| 14              27 |-- PC1
  *        Capstan (OUT)  PB3 --| 15              26 |-- PC2
@@ -104,7 +104,7 @@
     const int PIN_PA6 = _PB3;     // Play CD
     const int PIN_PA7 = _PB2;     // PB2 Auto Pause
 
-    const int PIN_PB0 = _PD4;    // Play/Rec                           (?)
+    const int PIN_PB0 = _PD4;    // MUTE Play/Rec                      (?)
     const int PIN_PB1 = _PD5;    // 1 Rewind, 0 Wind                   (?)
     const int PIN_PB2 = _PC4;    // Wind/Rewind slope                  (?)
     const int PIN_PB3 = _PD6;    // Capstan Motor 1 on, 0 off

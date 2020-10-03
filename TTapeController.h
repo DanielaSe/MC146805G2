@@ -43,7 +43,9 @@ class TTapeController
         void ProgrammKeyPressed();
         void MoveRecPlaybackLever();
         
-
+        bool IsOnRecord();
+        bool IsOnSyncRecord();
+        bool IsOnAutoRecord();
         bool Playing();
         bool Paused();
         int GetDirection();
@@ -53,26 +55,40 @@ class TTapeController
         int ProgrammedTracks();
         bool AnyProgrammedTracksAfter(int x);
         void StartRecordMode();
+        void Reset();
+        void StateToString(); 
 
         int TrackNumber = 1;
         bool Programming = false;
 
         bool PlayProgramm = false;
         int ProgrammPosition = -1;
+        
         bool SearchTrack = false;
-        bool Programm[21];
+        int SearchTrackNumber = 0;
+        int Programm[21];
+        int ProgrammCounter = 0;
         bool Recording;
+        bool AutoRestart = false;
+
+        bool TrackFound = false;
+       
+ 
+
+
     private:
         TDisplay *lcd;
         TInputs *inputs;
 
         
   
-        int direction = 1;
+        int direction = -1;
         bool StartUp = true;
         bool playing = false;
         bool paused = false;
         bool FastWinding = false;
+        bool StateReelMotor = false;
+        bool init = true;
 
 
         bool RewindOneSide = false;
@@ -80,26 +96,26 @@ class TTapeController
         TReverseMode ReverseMode = rmNone;
         TRecordMode RecordMode = recNone;
         
-        bool TrackFound = false;
-
+ 
         void GetState();
         void PushSlideServo();
         
         void StartProgramm();
+        bool AddSearchTrackNumber(int value);
    
         int InRange(int value, int min, int max);
         int GetNextProgrammedTrack();
         
 
+         bool StartedWithEmptyTape = false;
 
 
         int CurrentState = 0;
         bool StateSlideServoUp = false;
         bool StateRecord = false;
         bool StateHeadServo = false; // 1 wenn slide up und richtung rechts
-        bool StatePause = false;
         bool StateTapeReader = false;
-        bool StateReelMotor = false;
+        bool StatePause = false;
         bool StateCapstanMotor = false;
         bool RecordDiskEnd = false;
         bool RecordEnabledForSideA = true;
@@ -115,6 +131,8 @@ class TTapeController
         const int SET_WIND_RIGHT = PIN_PA1;
         const int SET_FAST_WIND = PIN_PB1;
         const int SET_FAST_WIND_RELAY = PIN_PB2;
+
+        const int SET_MUTE = PIN_PB0;
 
         const int CD_INPUT_PAUSE = PIN_PA5;
         const int CD_INPUT_STOP = PIN_PA4;

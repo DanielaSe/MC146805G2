@@ -27,6 +27,7 @@
 #include "TDisplay.h"
 #include "Arduino.h"
 #include "TPinLayout.h"
+#include "defines.h"
 
 
 
@@ -34,11 +35,20 @@
 TDisplay::TDisplay(void) {
 
     pinMode(PIN_DISPLAY_CLOCK, OUTPUT);
-    pinMode(PIN_DISPLAY_DATA, OUTPUT);   
+    pinMode(PIN_DISPLAY_DATA, OUTPUT);  
+
+    ShowNone();
+
     Clear();
+    #ifdef START_WITH_SCROLLING
+        init = 1;
+    #endif
 };
 
 
+void TDisplay::BlinkPlay(bool value) {
+    PlayMustBlink = value;
+}
 
 void TDisplay::pulseClock()
 {
@@ -46,6 +56,20 @@ void TDisplay::pulseClock()
     digitalWrite(PIN_DISPLAY_CLOCK, HIGH); 
 }
 
+void TDisplay::ShowMinus(bool value)
+{
+    minus = value;
+}
+
+void TDisplay::ShowDigit9(int value)
+{
+    minus = false;
+    if (value < 0) {
+        value *= -1;
+        minus = true;
+    }
+    digit = value;
+}
 
 void TDisplay::ShowDigit(int value)
 {
@@ -80,6 +104,8 @@ void TDisplay::Clear()
     paused = false;
     display = _ARROW + _REP_M + _DIR_R;
     digit = 0;
+    minus = false;
+    PlayMustBlink = false;
 }
 
 
@@ -88,6 +114,7 @@ void TDisplay::Play()
     paused = false;
     display &= _FULL - _WIND_RIGHT - _WIND_LEFT;
     display |= _PLAY;
+    PlayMustBlink = false;
 }
 
 
@@ -98,6 +125,8 @@ void TDisplay::Stop()
     paused = false;
     display &= _FULL - _PLAY - _WIND_RIGHT - _WIND_LEFT - _PRG_ALL;
     digit = 0;
+    minus = false;
+    PlayMustBlink = false;
 }
 
 
@@ -106,12 +135,8 @@ void TDisplay::Pause()
 {
     paused = true;
     display &= _FULL - _WIND_RIGHT - _WIND_LEFT;
-    if (!blink) {
-        display &= _FULL - _PLAY;  
-    }
-    else {
-        display |= _PLAY;
-    }
+    PlayMustBlink = true;
+
 }
 
 
@@ -155,7 +180,7 @@ void TDisplay::RecordMode(int rec)
     {
         case 1 : display |= _REC; break;
         case 2 : display |= _REC + _SYNC; break;
-        case 3 : display |= _REC + _SYNC + _AUTO; break;
+        case 3 : display |= _REC + _AUTO; break;
     }  
 }
 
@@ -171,12 +196,38 @@ void TDisplay::ReverseMode(int rm)
     }  
 }
 
+void TDisplay::ShowAll() {
+    digitalWrite(PIN_DISPLAY_DATA, HIGH);
+    pulseClock();
+    digitalWrite(PIN_DISPLAY_DATA, HIGH);
+    for (int x = 1; x <= segmentCount; x++) {
+                 
+        pulseClock();  
+    }
+}
+
+void TDisplay::ShowNone() {
+    digitalWrite(PIN_DISPLAY_DATA, HIGH);
+    pulseClock();
+    digitalWrite(PIN_DISPLAY_DATA, LOW);    
+    for (int x = 1; x <= segmentCount; x++) {
+             
+        pulseClock();  
+    }
+}
+
 
 
 void TDisplay::Update()
 {
-
-    blink = !blink;
+    int blinkChanged = false;
+    blinkDelay--;
+    if (blinkDelay < 0) {
+        blinkDelay = BLINK_DELAY;
+        blink = !blink;
+        blinkChanged = true;
+    }
+    
     if (paused) {
         if (blink) {
             display |= _PLAY;
@@ -205,9 +256,11 @@ void TDisplay::Update()
     }
 
     display &= _FULL - _ERROR;
-    if (blinkError > 0) {     
-        if (blink) {   
-            blinkError--;
+    if (blinkError > 0) {  
+        if (blinkChanged) { 
+            blinkError--; 
+        }   
+        if (blink) {     
             display |= _ERROR;
         } 
     }
@@ -216,30 +269,73 @@ void TDisplay::Update()
 
     long value = display;
 
-    if (digit < 0) {
+
+    if (init > 0) {
         value &= _FULL - (segmentCode[8] << 8) - segmentCode[8];
-        value += _LINE + (_LINE << 8);
+
+        int pos = init - 1;
+        if (pos < 11) {
+
+            value += (scroll[pos] << 8);
+            
+        }
+
+        pos++;
+        if (pos < 11) {
+            value += scroll[pos];
+
+        }
+
+        init++;
+        if (init >= 12) {
+            init = 0;
+        }
+
+        delay(150);
     }
     else {
-        int d1 = (digit / 10);
-        int d2 = digit - (d1 * 10);
-
-        if (d1 == 0 && d2 > 0) {
-            value &= _FULL - (segmentCode[8] << 8);
-            value += segmentCode[d2];
+        if (digit < 0) {
+            value &= _FULL - (segmentCode[8] << 8) - segmentCode[8];
+            value += _LINE + (_LINE << 8);
         }
         else {
-            value += (segmentCode[d1] << 8);
-            value += segmentCode[d2];
+            int d1 = (digit / 10);
+            int d2 = digit - (d1 * 10);
+
+            if (d1 == 0 && d2 > 0) {
+                value &= _FULL - (segmentCode[8] << 8);
+                value += segmentCode[d2];
+            }
+            else {
+                value += (segmentCode[d1] << 8);
+                value += segmentCode[d2];
+            }
+
+            if (minus) {
+                value += _D2_G;
+
+            }
         }
+
+
     }
 
+    if (PlayMustBlink) {
+        if (!blink) {
+            display &= _FULL - _PLAY;  
+        }
+        else {
+            display |= _PLAY;
+        }
+
+    }
 
 
 
     digitalWrite(PIN_DISPLAY_DATA, HIGH);
     pulseClock();
 
+    
     long bit = 1;
     for (int x = 1; x <= segmentCount; x++) {
 

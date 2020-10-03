@@ -47,6 +47,7 @@ TTapeController::TTapeController(TDisplay *_display, TInputs *_inputs) {
     pinMode(SET_FAST_WIND_RELAY, OUTPUT);
     pinMode(SET_CAPSTAN_MOTOR, OUTPUT);
     pinMode(SET_SLIDE_SERVO, OUTPUT);
+    pinMode(SET_MUTE, OUTPUT);
 
     digitalWrite(SET_WIND_LEFT, LOW);
     digitalWrite(SET_WIND_RIGHT, LOW);
@@ -54,6 +55,8 @@ TTapeController::TTapeController(TDisplay *_display, TInputs *_inputs) {
     digitalWrite(SET_FAST_WIND_RELAY, HIGH);
     digitalWrite(SET_CAPSTAN_MOTOR, LOW);
     digitalWrite(SET_SLIDE_SERVO, HIGH);
+    digitalWrite(SET_MUTE, LOW);
+
 }
 
 
@@ -70,6 +73,25 @@ int TTapeController::InRange(int value, int min, int max)
 
 
 
+void TTapeController::Reset() {
+
+    
+    if (playing || FastWinding) {
+        Serial.println("Reset");
+        Stop();
+    }
+}
+
+bool TTapeController::IsOnRecord() {
+    return StateRecord;
+}
+bool TTapeController::IsOnAutoRecord() {
+    return StateRecord && RecordMode == recAuto;
+}
+bool TTapeController::IsOnSyncRecord() {
+    return StateRecord && RecordMode == recSync;
+}
+
 
 
 
@@ -80,10 +102,16 @@ int TTapeController::InRange(int value, int min, int max)
 void TTapeController::Play() 
 {
     GetState();
+    AutoRestart = false;
+
+    if (lcd->WaitingForInput()) {
+        lcd->Clear();
+    }
+
     if (paused) {
         digitalWrite(SET_FAST_WIND, HIGH);
         digitalWrite(SET_CAPSTAN_MOTOR, HIGH);
-        if (direction > 0) {
+        if (direction < 0) {
             digitalWrite(SET_WIND_RIGHT, LOW);
             digitalWrite(SET_WIND_LEFT, HIGH);
         }
@@ -105,7 +133,8 @@ void TTapeController::Play()
         return;
     }
     
-    if (StateSlideServoUp) {   
+    if (StateSlideServoUp) { 
+        Serial.println("Play StateSlideServoUp");  
         Stop();
         GetState();
     }
@@ -114,6 +143,10 @@ void TTapeController::Play()
         Recording = true;
         ReverseMode = rmNone;
     }
+
+    StartedWithEmptyTape = StateTapeReader;
+    Serial.print("StartedWithEmptyTape = "); 
+    Serial.println(StartedWithEmptyTape);
     
     digitalWrite(SET_FAST_WIND_RELAY, HIGH);
     digitalWrite(SET_FAST_WIND, HIGH); 
@@ -127,7 +160,7 @@ void TTapeController::Play()
         delay(50);
         
     }
-    if (direction > 0) {
+    if (direction < 0) {
         digitalWrite(SET_WIND_RIGHT, LOW);
         digitalWrite(SET_WIND_LEFT, HIGH);
     }
@@ -140,6 +173,7 @@ void TTapeController::Play()
     playing = true;
     paused = false;  
     SearchTrack = false;
+    SearchTrackNumber = 0;
     TrackFound = false;
     if (ReverseMode != rmNone) {
         RepeatSecondSide = false;
@@ -160,11 +194,13 @@ void TTapeController::Stop()
         digitalWrite(SET_CAPSTAN_MOTOR, HIGH);   
     }
 
-    if (!playing && !FastWinding) {
+    if (!playing && !FastWinding && !SearchTrack) {
         return;
     }
     GetState();
-    if (FastWinding)
+    
+    // not working probably. tape gets better handled without
+  /*  if (FastWinding)
     {
         // Correction Impulse
         if (digitalRead(SET_WIND_LEFT) == HIGH) {
@@ -175,22 +211,27 @@ void TTapeController::Stop()
             digitalWrite(SET_WIND_LEFT, HIGH);
             digitalWrite(SET_WIND_RIGHT, LOW);  
         }
-        delay(40); 
-    }
+        delay(20); 
+    }*/
 
     
     if (StateSlideServoUp) {
         PushSlideServo();    
     }
+
+    digitalWrite(SET_MUTE, LOW);
     digitalWrite(SET_FAST_WIND_RELAY, HIGH);
     digitalWrite(SET_FAST_WIND, HIGH);  
     digitalWrite(SET_WIND_LEFT, LOW);
     digitalWrite(SET_WIND_RIGHT, LOW);  
-    delay(400);
+    
+    delay(200);
     digitalWrite(SET_CAPSTAN_MOTOR, LOW);   
     lcd->Stop();
     playing = false;
     FastWinding = false;
+    SearchTrack = false;
+    SearchTrackNumber = 0;
     paused = false;
     if (ReverseMode != rmNone && ReverseMode != rmEndless) {
         RepeatSecondSide = false;
@@ -198,20 +239,20 @@ void TTapeController::Stop()
         ReverseMode = rmNone;
         lcd->ReverseMode((int)ReverseMode);
     }
-    SearchTrack = 0;
+    
 
     if (Recording) {
         Recording = false;
     }
 
-  //  delay(200);
 }
 
 
 
 /************************************************************************
  * Pause
- * 
+ * In orignal firmware the servo slide goes down which is the same as
+ * stop
  * *********************************************************************/
 void TTapeController::Pause() 
 {
@@ -226,6 +267,7 @@ void TTapeController::Pause()
     digitalWrite(SET_WIND_RIGHT, LOW);
     digitalWrite(SET_CAPSTAN_MOTOR, LOW); 
     paused = true;
+    SearchTrack = false;
     FastWinding = false; 
 }
 
@@ -238,32 +280,40 @@ void TTapeController::Pause()
 void TTapeController::WindLeft() 
 {
     if (paused) {return;}
+    if (FastWinding) {return;}
+    AutoRestart = playing;
+    Serial.println("WindLeft");  
     Stop();
-
     GetState();
+
+    digitalWrite(SET_MUTE,HIGH);
     digitalWrite(SET_CAPSTAN_MOTOR, HIGH); 
     digitalWrite(SET_FAST_WIND_RELAY, LOW);
     digitalWrite(SET_FAST_WIND, HIGH);
     delay(100); 
     
     if (direction < 0) {
-        digitalWrite(SET_WIND_RIGHT, LOW);  
-        digitalWrite(SET_WIND_LEFT, HIGH);  
-    }
-    else {
         digitalWrite(SET_WIND_LEFT, LOW);  
         digitalWrite(SET_WIND_RIGHT, HIGH);  
     }
+    else {
+        digitalWrite(SET_WIND_RIGHT, LOW);  
+        digitalWrite(SET_WIND_LEFT, HIGH);  
+    }
     delay(50);
     PushSlideServo();
-    delay(200);
-    digitalWrite(SET_FAST_WIND, LOW);   
+    delay(100);
+    digitalWrite(SET_FAST_WIND, LOW);  
+    if (AutoRestart) {
+        lcd->Play();
+    }   
     if (direction < 0) {
         lcd->WindRight();
     }
     else {
         lcd->WindLeft();
-    }    
+    }  
+
     SearchTrack = false;
     FastWinding = true; 
 }
@@ -277,15 +327,19 @@ void TTapeController::WindLeft()
 void TTapeController::WindRight() 
 {
     if (paused) {return;}
+    if (FastWinding) {return;}
+    AutoRestart = playing;
+    Serial.println("WindRight");  
     Stop();
     GetState();
   
+    digitalWrite(SET_MUTE,HIGH);
     digitalWrite(SET_CAPSTAN_MOTOR, HIGH); 
     digitalWrite(SET_FAST_WIND_RELAY, LOW);
     digitalWrite(SET_FAST_WIND, HIGH);
     delay(100); 
     
-    if (direction > 0) {
+    if (direction < 0) {
         digitalWrite(SET_WIND_RIGHT, LOW);  
         digitalWrite(SET_WIND_LEFT, HIGH);  
     }
@@ -295,8 +349,11 @@ void TTapeController::WindRight()
     }
     delay(50);
     PushSlideServo();
-    delay(200);
+    delay(100);
     digitalWrite(SET_FAST_WIND, LOW);   
+    if (AutoRestart) {
+        lcd->Play();
+    }
     if (direction < 0) {
         lcd->WindLeft();
     }
@@ -345,6 +402,7 @@ void TTapeController::EndProgramm()
     PlayProgramm = false;
     ProgrammPosition = -1;
     ClearProgramm();
+    Serial.println("EndProgramm");  
     Stop();
     lcd->Stop();
 }
@@ -466,7 +524,45 @@ void TTapeController::ProgrammKeyPressed()
         }
         return;
     }
-    lcd->ShowDigit(GetNextProgrammedTrack());
+    if (HasProgramm()) {
+        lcd->ShowDigit(GetNextProgrammedTrack());
+    }
+    else {
+        lcd->ShowError();
+    }
+
+    
+}
+
+
+
+/************************************************************************
+ * AddSearchTrackNumber
+ * Skip a maximum of 9 tracks
+ * *********************************************************************/
+bool TTapeController::AddSearchTrackNumber(int value) {
+
+    bool r = false;
+    if (value > 0 ) {
+
+        if (SearchTrackNumber < 9) {
+            SearchTrackNumber++;           
+        }   
+        if (SearchTrackNumber == 0) {
+            SearchTrackNumber++;
+            r = true;
+        }  
+    }
+    else {
+        if (SearchTrackNumber > -9) {
+            SearchTrackNumber--;           
+        }
+        if (SearchTrackNumber == 0) {
+            SearchTrackNumber--;
+            r = true;
+        }  
+    }    
+    return r;
 }
 
 
@@ -477,51 +573,8 @@ void TTapeController::ProgrammKeyPressed()
  * *********************************************************************/
 void TTapeController::NextTrack() 
 {
-      
-    if (direction < 0 ) {WindLeft(); }
-    else {WindRight();}
-    lcd->Play();
-    SearchTrack = true;
-/*
-    if (FastWinding || paused || SearchTrack) {return;}
-    if (!playing) {
-        if (Programming) {   
-            TrackNumber = InRange(TrackNumber + 1, 1, 20);
-        }
-        else {
-            TrackNumber = 1;
-            Programming = true;
-        }
-        lcd->Programm(TrackNumber, (int)Programm[TrackNumber]);
-        return;
-    }
-    TrackFound = false;
-    SearchTrack = true;  
-    digitalWrite(SET_FAST_WIND, LOW);
-    if (direction < 0) {
-        lcd->WindLeft();
-    }
-    else {
-        lcd->WindRight();
-    }
-*/
-}
-
-
-
-/************************************************************************
- * PreviousTrack
- * Music search in previous direction
- * *********************************************************************/
-void TTapeController::PreviousTrack() 
-{
-    if (direction > 0 ) {WindLeft(); }
-    else {WindRight();}
-    lcd->Play();
-    SearchTrack = true;
-/*
-    if (FastWinding || paused || SearchTrack) {return;}
-    if (!playing) {
+    if ((FastWinding && !SearchTrack) || paused) {return;}
+    if (!SearchTrack && !playing) {
         if (Programming) {   
             TrackNumber = InRange(TrackNumber - 1, 1, 20);
         }
@@ -533,28 +586,106 @@ void TTapeController::PreviousTrack()
         return;
     }
 
+    if (SearchTrack) {
+        bool changeDir = false;
+        if (direction > 0 ) {
+            changeDir = AddSearchTrackNumber(-1);
+        }
+        else {
+            changeDir = AddSearchTrackNumber(1);
+        } 
+        lcd->ShowDigit9(SearchTrackNumber);
+        if (changeDir) {
+            FastWinding = false;
+        }
+        else {
+            return;
+        }
+        
+    }
+    if (direction > 0 ) { WindLeft(); }
+    else { WindRight(); }
+    AutoRestart = false;
+    TrackFound = false;
     SearchTrack = true;
-    digitalWrite(SET_WIND_RIGHT, LOW);  
-    digitalWrite(SET_WIND_LEFT, LOW);    
-    digitalWrite(SET_FAST_WIND, LOW);
-    delay(100);     
-    if (direction < 0) {
-        digitalWrite(SET_WIND_RIGHT, LOW);  
-        digitalWrite(SET_WIND_LEFT, HIGH);  
+    if (direction > 0 ) {
+        AddSearchTrackNumber(-1);
     }
     else {
-        digitalWrite(SET_WIND_LEFT, LOW);  
-        digitalWrite(SET_WIND_RIGHT, HIGH);         
-    }
-    
-    if (direction < 0) {
-        lcd->WindRight();
-    }
-    else {
+        AddSearchTrackNumber(1);
+    } 
+    lcd->Play();
+    lcd->BlinkPlay(true);
+    lcd->ShowDigit9(SearchTrackNumber);
+  //  if (direction > 0) {
         lcd->WindLeft();
-    }
-    */
+  //  }
+  //  else {
+  //      lcd->WindRight();
+   // }
 }
+
+
+
+/************************************************************************
+ * PreviousTrack
+ * Music search in previous direction
+ * *********************************************************************/
+void TTapeController::PreviousTrack() 
+{
+    if ((FastWinding && !SearchTrack) || paused) {return;}
+    if (!SearchTrack && !playing) {
+        if (Programming) {   
+            TrackNumber = InRange(TrackNumber + 1, 1, 20);
+        }
+        else {
+            TrackNumber = 1;
+            Programming = true;
+        }
+        lcd->Programm(TrackNumber, (int)Programm[TrackNumber]);
+        return;
+    }
+   
+    if (SearchTrack) {
+        bool changeDir = false;
+        if (direction < 0 ) {
+            changeDir = AddSearchTrackNumber(-1);
+        }
+        else {
+            changeDir = AddSearchTrackNumber(1);
+        } 
+        lcd->ShowDigit9(SearchTrackNumber);
+        if (changeDir) {
+            FastWinding = false;
+        }
+        else {
+            return;
+        }
+        
+        
+    }
+    if (direction < 0 ) { WindLeft(); }
+    else { WindRight(); }
+    AutoRestart = false;
+    TrackFound = false;
+    SearchTrack = true;
+    if (direction < 0 ) {
+        AddSearchTrackNumber(-1);
+    }
+    else {
+        AddSearchTrackNumber(1);
+    } 
+    lcd->Play();
+    lcd->BlinkPlay(true);
+    lcd->ShowDigit9(SearchTrackNumber);
+ //   if (direction < 0) {
+ //       lcd->WindLeft();
+ //   }
+ //   else {
+        lcd->WindRight();
+ //   }
+}
+
 
 
 
@@ -569,6 +700,7 @@ void TTapeController::ToggleDirection()
     bool isPlaying = playing;
 
     if (isPlaying) {
+        Serial.println("ToggleDirection Playing");  
         Stop();
     }
 
@@ -577,9 +709,9 @@ void TTapeController::ToggleDirection()
     digitalWrite(SET_WIND_RIGHT, LOW);  
 
     digitalWrite(SET_FAST_WIND, LOW); 
-    delay(100); 
+    delay(80); 
     digitalWrite(SET_FAST_WIND, HIGH); 
-    delay(50); 
+    delay(40); 
     digitalWrite(SET_WIND_LEFT, LOW);  
     digitalWrite(SET_WIND_RIGHT, LOW);  
     
@@ -661,6 +793,19 @@ void TTapeController::ToggleRecordMode()
     lcd->RecordMode((int)RecordMode);
 }
 
+void TTapeController::StateToString() 
+{
+
+    if (StateSlideServoUp) { Serial.println("StateSlideServoUp"); }
+    if (StateRecord) { Serial.println( "StateRecord"); }
+    if (StateHeadServo) { Serial.println( "StateHeadServo"); }
+    if (StatePause) { Serial.println( "StatePause"); }
+    if (StateTapeReader) { Serial.println( "StateTapeReader"); }
+    if (StateReelMotor) { Serial.println( "StateReelMotor"); }
+    if (RecordDiskEnd ) { Serial.println( "RecordDiskEnd"); }
+    if (RecordEnabledForSideA ) { Serial.println( "RecordEnabledForSideA"); }
+    if (RecordEnabledForSideB) { Serial.println( "RecordEnabledForSideB"); }
+}
 
 /************************************************************************
  * MoveRecPlaybackLever
@@ -668,14 +813,21 @@ void TTapeController::ToggleRecordMode()
  * *********************************************************************/
 void TTapeController::MoveRecPlaybackLever()
 {
+    Serial.println("MoveRecPlaybackLever");
+
     bool WaitForState = !StateRecord;
+
+    Serial.print(StateRecord);
+    Serial.print(" > ");
+    Serial.println(WaitForState);
     
-    int Error = 2000;
+    int Error = 200;
     digitalWrite(SET_WIND_LEFT, LOW);  
     digitalWrite(SET_WIND_RIGHT, HIGH);  
     digitalWrite(SET_FAST_WIND, LOW); 
-    while (StateRecord = WaitForState) {
-        delay(20); 
+    while (StateRecord != WaitForState) {
+        StateToString();
+        delay(5); 
         GetState();
         Error--;
         if (Error <= 0) {
@@ -709,6 +861,7 @@ void TTapeController::MoveRecPlaybackLever()
 void TTapeController::StartRecordMode()
 {
     if (playing || FastWinding) {
+        Serial.println("StartRecMode");  
         Stop();
     }
     if (RecordMode == recNone) RecordMode = recOn;
@@ -746,8 +899,46 @@ void TTapeController::GetState()
 void TTapeController::Update() 
 {
 
-
     GetState();
+
+    if (init) {
+
+
+        if (StateRecord) MoveRecPlaybackLever();
+        init = false;
+    }
+
+
+    if (StateTapeReader) {
+        digitalWrite(PIN_BUILD_IN_LED, HIGH);
+        delay(100);
+    }
+    else {
+        digitalWrite(PIN_BUILD_IN_LED, LOW);
+    }
+
+    // Search for track and continue to play when found
+    if (SearchTrack) {
+
+        if (TrackFound) {
+            TrackFound = false;
+            SearchTrackNumber += (SearchTrackNumber > 0) ? -1 : 1;
+/*
+            if (SearchTrackNumber > 0) { 
+                SearchTrackNumber--; 
+            }
+            else {     
+                SearchTrackNumber++;   
+            }*/
+            lcd->ShowDigit9(SearchTrackNumber);         
+            if (SearchTrackNumber == 0) {
+                SearchTrack = false;  
+                Play();
+            }        
+            return;
+        }
+    }
+
 
     // Playback of programmed tracks
     if (PlayProgramm) {
@@ -811,17 +1002,6 @@ void TTapeController::Update()
         return;
     }
 
-    // Search for track and continue to play when found
-    if (SearchTrack != 0) {
-        if (TrackFound) {
-            
-            SearchTrack = false;
-            TrackFound = false;
-            // paused = true;
-            Play();
-            return;
-        }
-    }
 
     // when fast winding check if tape is at the end 
     if (FastWinding) {
@@ -832,6 +1012,7 @@ void TTapeController::Update()
                 RewindOneSide = false;
             }
             else {
+                Serial.println("Update FastWinding TapeReader");  
                 Stop();
             }          
             return;
@@ -858,18 +1039,28 @@ void TTapeController::Update()
 
     // when playing check for tape and if any reverse modes are active
     if (playing) {
-        if (StateTapeReader) {
+        
+        if (StartedWithEmptyTape && !StateTapeReader) {
+           StartedWithEmptyTape = false;
+           Serial.println("StartedWithEmptyTape = false");  
+        }
+
+  
+        if (StateTapeReader && !StartedWithEmptyTape) {
             if (Recording) {
                 Stop();
+                Serial.println("Update Recording TapeReader");  
                 return;
             }
             switch(ReverseMode)
             {
                 case rmNone:
+                    Serial.println("Update rmNone");  
                     Stop();
                     return;
 
                 case rmOneSide:
+                    Serial.println("Update rmOneSide");  
                     Stop();
                     delay(500);
                     if (direction < 0) {
@@ -884,6 +1075,7 @@ void TTapeController::Update()
 
                 case rmBothSides:
                     if (RepeatSecondSide) {
+                        Serial.println("Update rmBothSides");  
                         Stop();
                         return;
                     }
@@ -927,7 +1119,6 @@ void TTapeController::Update()
         return;
     }
 
-    
 
 
 }

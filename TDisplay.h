@@ -27,7 +27,12 @@ class TDisplay
         void DirectionRight();
         void Programm(int value, int m);
         void ShowDigit(int value);
+        void ShowDigit9(int value);
+        void ShowAll();
+        void ShowNone();
         void ShowError();
+        void ShowMinus(bool value);
+        void BlinkPlay(bool value);
 
         bool WaitingForInput();
     private:
@@ -43,10 +48,21 @@ class TDisplay
         int programmPlace = 0;
         int programmFlashCount = 0;
         int blinkError = 0;
+        int blinkDelay = 0;
+        bool PlayMustBlink = false;
+        bool minus = false;
+
+        int init = 0;
+
+        const int BLINK_DELAY = 3;
+
+            //                                              7           0           c           d           5           5           5
+        const int scroll[11] = { 0b00000000, 0b00000000, 0b00000111, 0b00111111, 0b01011000, 0b01011110, 0b01101101, 0b01101101, 0b01101101, 0b00000000, 0b00000000 };
+
 
         const int segmentCode[10] = { 0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110, 
                              0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01100111 };
-        const long _FULL =       0xffffffff;  
+        const long _FULL = 0xffffffff;  
         const int _LINE = 0b01000000;
 
         const long _D1_A =       0x00000001;  // Bit 1
