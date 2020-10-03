@@ -1,11 +1,12 @@
 /***************************************************************
  * 
- * Play
- * Capstan Motor ON and impulse on Relay 1 
+ * Replacement for uP MC146805G2 in Philips 70CD555
  * 
- * Stop
- * Same as Play - Capstan Motor ON and impulse on Relay 1 
- * It seems we need to consider the sensors, if a tape is inserted
+ * www.70cd555.com
+ * Daniela Sefzig, Oct.2020
+ * 
+ * 
+
  * 
  * * ************************************************************/
 
@@ -231,6 +232,7 @@ void TTapeController::Stop()
     playing = false;
     FastWinding = false;
     SearchTrack = false;
+    StopWhenTapeStarts = false;
     SearchTrackNumber = 0;
     paused = false;
     if (ReverseMode != rmNone && ReverseMode != rmEndless) {
@@ -286,7 +288,7 @@ void TTapeController::WindLeft()
     Stop();
     GetState();
 
-    digitalWrite(SET_MUTE,HIGH);
+    if (!AutoRestart) digitalWrite(SET_MUTE,HIGH);
     digitalWrite(SET_CAPSTAN_MOTOR, HIGH); 
     digitalWrite(SET_FAST_WIND_RELAY, LOW);
     digitalWrite(SET_FAST_WIND, HIGH);
@@ -333,7 +335,7 @@ void TTapeController::WindRight()
     Stop();
     GetState();
   
-    digitalWrite(SET_MUTE,HIGH);
+    if (!AutoRestart) digitalWrite(SET_MUTE,HIGH);
     digitalWrite(SET_CAPSTAN_MOTOR, HIGH); 
     digitalWrite(SET_FAST_WIND_RELAY, LOW);
     digitalWrite(SET_FAST_WIND, HIGH);
@@ -869,6 +871,11 @@ void TTapeController::StartRecordMode()
 
     MoveRecPlaybackLever();
     lcd->RecordMode((int)RecordMode);
+
+    if (RecordMode == recOn && StateTapeReader) {
+        StopWhenTapeStarts = true;
+        Play();   
+    }
 }
 
 
@@ -1040,16 +1047,30 @@ void TTapeController::Update()
     // when playing check for tape and if any reverse modes are active
     if (playing) {
         
+        if (StopWhenTapeStarts && !StateTapeReader) {
+            StopWhenTapeStarts = false;
+            Stop();
+            #ifdef DEBUG
+                Serial.println("Tape ready for record"); 
+            #endif 
+            return;
+        }
+
+
         if (StartedWithEmptyTape && !StateTapeReader) {
            StartedWithEmptyTape = false;
-           Serial.println("StartedWithEmptyTape = false");  
+           #ifdef DEBUG
+                Serial.println("StartedWithEmptyTape = false");  
+           #endif 
         }
 
   
         if (StateTapeReader && !StartedWithEmptyTape) {
             if (Recording) {
                 Stop();
-                Serial.println("Update Recording TapeReader");  
+                #ifdef DEBUG
+                    Serial.println("Update Recording TapeReader"); 
+                #endif 
                 return;
             }
             switch(ReverseMode)

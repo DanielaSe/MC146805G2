@@ -2,9 +2,48 @@
  * 
  * Replacement for uP MC146805G2 in Philips 70CD555
  * 
- * Direct replacement for item 7501 - no changes on the uP PCB needed
- * CPU runs on 8.7MHz - Arduino is twice as fast, thus timing is different
- * and different as described in the service manual.
+ *      www.70cd555.com         
+ *      Daniela Sefzig, Oct.2020
+ * 
+ * 
+ * 
+ * Direct replacement for item 7501.
+ * Still work in progress. Needs more testing.
+ * 
+ * Requires the following changings on the uProc panel:
+ * - put a socket instead of the MC146805G2 and insert replacement PCB
+ * - use additional small clock PCB for the CD-Player CPU with 4MHz crystal
+ *   (powering the clock with inverters was not stable, maybe retry with the next revision)
+ * 
+ * 
+ * The original CPU runs on 8.7MHz - Arduino is almost as twice as fast with 16MHz, 
+ * thus the timing has to be different. Only one key press at a time is supported, except the demo keys.
+ * 
+ * 
+ * What is different to the orignal - because I liked to improve the handling
+ * 
+ * - When pressing record and the tape reader recognises the tape is
+ *   at the very beginning it moves forward until the tape really starts.
+ *   Avoids to record music on the non magnetic part of the tape.
+ * 
+ * - Pause does not move the slide servo - otherwise it would be the
+ *   same behaviour as stop. Need some further checks if this handling is ok.
+ * 
+ * - Programming works differently. The tape rewinds when you start
+ *   the program, not before. also side B is supported for programming
+ * 
+ * - Demo mode only supports to check the keys (eq. demo mode 0)
+ * 
+ * - Since the CD CPU is not snyced anymore the events from the CPU
+ *   might not appear - or at least not sure when they get fired because there
+ *   is no documentation. Events just used in auto-rec mode.
+ * 
+ * - Not sure about the exact handling of the mute output. In this case for forward/rewind
+ *   it is only used when in play mode
+ * 
+ * 
+ * 
+ * 
  * 
  * 
  * Todo: find a way to enable the oscillator without the original CPU

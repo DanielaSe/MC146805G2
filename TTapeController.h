@@ -107,7 +107,8 @@ class TTapeController
         int GetNextProgrammedTrack();
         
 
-         bool StartedWithEmptyTape = false;
+        bool StartedWithEmptyTape = false;
+        bool StopWhenTapeStarts = false;
 
 
         int CurrentState = 0;
