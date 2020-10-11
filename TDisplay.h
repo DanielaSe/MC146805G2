@@ -33,6 +33,7 @@ class TDisplay
         void ShowError();
         void ShowMinus(bool value);
         void BlinkPlay(bool value);
+        void BlinkRecord(bool value);
 
         bool WaitingForInput();
     private:
@@ -50,18 +51,24 @@ class TDisplay
         int blinkError = 0;
         int blinkDelay = 0;
         bool PlayMustBlink = false;
+        bool RecordMustBlink = false;
         bool minus = false;
 
         int init = 0;
 
         const int BLINK_DELAY = 3;
 
-            //                                              7           0           c           d           5           5           5
+        // no animation, just keep it as it is...
+       // int playAnimation = 0;
+       // const int playL[8] = { 0b00000011, 0b00000001, 0b00000000, 0b00000000, 0b00000000, 0b00001000, 0b00001100, 0b00000110);
+       // const int playH[8] = { 0b00000000, 0b00000001, 0b00100001, 0b00110000, 0b00011000, 0b00001000, 0b00000000, 0b00000000);
+
+        //                                              7           0           c           d           5           5           5
         const int scroll[11] = { 0b00000000, 0b00000000, 0b00000111, 0b00111111, 0b01011000, 0b01011110, 0b01101101, 0b01101101, 0b01101101, 0b00000000, 0b00000000 };
 
 
         const int segmentCode[10] = { 0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110, 
-                             0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01100111 };
+                             0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01101111 };
         const long _FULL = 0xffffffff;  
         const int _LINE = 0b01000000;
 

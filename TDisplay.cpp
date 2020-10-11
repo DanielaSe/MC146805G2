@@ -46,6 +46,10 @@ TDisplay::TDisplay(void) {
 };
 
 
+void TDisplay::BlinkRecord(bool value) {
+    RecordMustBlink = value;
+}
+
 void TDisplay::BlinkPlay(bool value) {
     PlayMustBlink = value;
 }
@@ -320,6 +324,15 @@ void TDisplay::Update()
 
     }
 
+    if (RecordMustBlink) {
+        if (!blink) {
+            display &= _FULL - _REC;  
+        }
+        else {
+            display |= _REC;
+        }
+    }
+
     if (PlayMustBlink) {
         if (!blink) {
             display &= _FULL - _PLAY;  
@@ -327,7 +340,6 @@ void TDisplay::Update()
         else {
             display |= _PLAY;
         }
-
     }
 
 

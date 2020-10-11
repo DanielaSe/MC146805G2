@@ -62,7 +62,7 @@ class TInputs
     private:
         int getKey(int shl);
         int readKeyLine(int pin, int shl);
-        
+   
 
         int oldPressedKeys = 0;
         int LockKeyBoard = 0;

@@ -12,6 +12,7 @@
 
 enum TReverseMode {rmNone, rmOneSide, rmBothSides, rmEndless};
 enum TRecordMode {recNone, recOn, recSync, recAuto};
+enum TFastWind {fwNone, fwForward, fwRewind};
 
 
 class TTapeController
@@ -57,6 +58,8 @@ class TTapeController
         void StartRecordMode();
         void Reset();
         void StateToString(); 
+        void NewAutoRecordTrackStarted();
+        void GetState();
 
         int TrackNumber = 1;
         bool Programming = false;
@@ -73,7 +76,7 @@ class TTapeController
 
         bool TrackFound = false;
        
- 
+        int CurrentState = 0;
 
 
     private:
@@ -86,32 +89,36 @@ class TTapeController
         bool StartUp = true;
         bool playing = false;
         bool paused = false;
-        bool FastWinding = false;
+        
         bool StateReelMotor = false;
-        bool init = true;
 
 
         bool RewindOneSide = false;
         bool RepeatSecondSide = false;
         TReverseMode ReverseMode = rmNone;
         TRecordMode RecordMode = recNone;
-        
+        TFastWind FastWinding = fwNone;
  
-        void GetState();
+        
         void PushSlideServo();
+        void SetMute(bool value);
         
         void StartProgramm();
         bool AddSearchTrackNumber(int value);
    
         int InRange(int value, int min, int max);
         int GetNextProgrammedTrack();
+        void GetTrackForProgramm(int value);
+        bool CheckIfRecordingIsPossible();
         
+        void StartCapstan(); 
+        void StopCapstan(); 
 
         bool StartedWithEmptyTape = false;
         bool StopWhenTapeStarts = false;
 
-
-        int CurrentState = 0;
+        int AutoRecordTrackNumber = 0;
+        
         bool StateSlideServoUp = false;
         bool StateRecord = false;
         bool StateHeadServo = false; // 1 wenn slide up und richtung rechts
@@ -121,8 +128,18 @@ class TTapeController
         bool RecordDiskEnd = false;
         bool RecordEnabledForSideA = true;
         bool RecordEnabledForSideB = true;
+        bool PrepareForProgramm = false;
         
-        
+        // 1 second delay for capstan to switch off
+        const int CAPSTAN_OFF_DELAY = 1000; 
+
+        // Give the motor some time to reach its final speed before enabling audio
+        const int SWITCHON_MUSIC_DELAY = 150; 
+
+        long SwitchOffCapstan = 0;
+        long SwitchOnMusic = 0;
+        long IgnoreStateTapeReader = 0;
+        long ms = 0;
 
         const int DELAY_SLIDE_SERVO = 80;
 

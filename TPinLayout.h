@@ -2,43 +2,32 @@
  * 
  * 
  * 
- *                                   MC146805G2
- *                              ________    ________
- *                             | ( )    |__|        |
- *                    !RESET --| 1               40 |-- VDD
- *      CD Pause State  !IRQ --| 2               39 |-- OSC IN
- *                       NUM --| 3               38 |-- OSC OUT
- *     Auto Pause ( ? )  PA7 --| 4               37 |-- TIMER  HI
- *        Play CD (OUT)  PA6 --| 5               36 |-- PD7  (OUT) Rec (-, Rec. Enable Side A, B)
- *       Pause CD (OUT)  PA5 --| 6               35 |-- PD6  (OUT) Cass Act ??? (Reel Motor, Tape Reader, Pause Cass)
- *        Stop CD (OUT)  PA4 --| 7               34 |-- PD5  (OUT) Cass Keys ??? (Head Servo, Rec, Slide Servo)
- *      LCD Clock (OUT)  PA3 --| 8               33 |-- PD4  (OUT) Read Keys 4 (Next, Previous, Prog)
- *       LCD Data (OUT)  PA2 --| 9               32 |-- PD3  (OUT) Read Keys 5 (CD Stop, CD Play, CD Pause)
- *        Wind << (OUT)  PA1 --| 10              31 |-- PD2  (OUT) Read Keys 3 (Stop, Pause, Rec)
- *        Wind >> (OUT)  PA0 --| 11              30 |-- PD1  (OUT) Read Keys 2 (Play, <<, >>)
- *     Mute State ( ? )  PB0 --| 12              29 |-- PD0  (OUT) Read Keys 1 (Reverse Mode, Rec Mode, Direction)
- *       Wind Dir (OUT)  PB1 --| 13              28 |-- PC0  
- * Relay FastWind (OUT)  PB2 --| 14              27 |-- PC1
- *        Capstan (OUT)  PB3 --| 15              26 |-- PC2
- *    Servo Relay (OUT)  PB4 --| 16              25 |-- PC3
- *                       PB5 --| 17              24 |-- PC4  ( ? ) Disc Space
- *                       PB6 --| 18              23 |-- PC5  (IN) Read Input 1
- *                       PB7 --| 19              22 |-- PC6  (IN) Read Input 2
- *                       VSS --| 20              21 |-- PC7  (IN) Read Input 3
- *                             |____________________|
+ *                                               MC146805G2
+ *                                          ________    ________
+ *                                         | ( )    |__|        |
+ *                                !RESET --| 1               40 |-- VDD
+ *    Music Search, pause detected  !IRQ --| 2               39 |-- OSC IN
+ *                                   NUM --| 3               38 |-- OSC OUT
+ *                 Auto Pause ( ? )  PA7 --| 4               37 |-- TIMER  HI
+ *                    Play CD (OUT)  PA6 --| 5               36 |-- PD7  (OUT) Get States (CD Disc End, Rec. Enable Side A, B)
+ *                   Pause CD (OUT)  PA5 --| 6               35 |-- PD6  (OUT) Get States (Reel Motor, Tape Reader, Pause Cass)
+ *                    Stop CD (OUT)  PA4 --| 7               34 |-- PD5  (OUT) Get States (Head Servo, Rec, Slide Servo)  
+ *                  LCD Clock (OUT)  PA3 --| 8               33 |-- PD4  (OUT) Get Keys 4 (Next, Previous, Prog)
+ *                   LCD Data (OUT)  PA2 --| 9               32 |-- PD3  (OUT) Get Keys 5 (CD Stop, CD Play, CD Pause)
+ *                    Wind << (OUT)  PA1 --| 10              31 |-- PD2  (OUT) Get Keys 3 (Stop, Pause, Rec)
+ *                    Wind >> (OUT)  PA0 --| 11              30 |-- PD1  (OUT) Get Keys 2 (Play, <<, >>)
+ *              CD Pause State (IN)  PB0 --| 12              29 |-- PD0  (OUT) Get Keys 1 (Reverse Mode, Rec Mode, Direction)
+ *            Wind Fast/Slow  (OUT)  PB1 --| 13              28 |-- PC0  
+ * SlideServo Lever Play/Wind (OUT)  PB2 --| 14              27 |-- PC1
+ *       Capstan Motor On/off (OUT)  PB3 --| 15              26 |-- PC2
+ *         Release SlideServo (OUT)  PB4 --| 16              25 |-- PC3
+ *                                   PB5 --| 17              24 |-- PC4  (IN) Event CD Pause
+ *                                   PB6 --| 18              23 |-- PC5  (IN) Read Key/States 1
+ *                                   PB7 --| 19              22 |-- PC6  (IN) Read Key/States 2
+ *                                   VSS --| 20              21 |-- PC7  (IN) Read Key/States 3
+ *                                         |____________________|
  * 
  * 
- * 
- * Notes:
- * 
- *      Unused I/O pins are set to low
- * 
- *      Reset pin has a delay on start-up because of 2523 4.7uF -> rebuild width 10ms delay
- * 
- *      PB2, Relay Head/Dir switches the direction on the head only if cassette is down. The turining of the head
- *      is done by B63 on CASS.PART through the red lever of the mechanic. 
- *      
- *      SK60 Slide Servo Switch = head is up (1) or down (0)
  * 
  * **************************************************************************************************************/
 
@@ -93,22 +82,22 @@
     const int PIN_DISPLAY_CLOCK = _PC6;    //
     const int PIN_DISPLAY_DATA = _PC5;     //
 
-    const int PIN_IRQ = _PB1;    // 1 Play, 0 Pause                     (?)
+    const int PIN_IRQ = _PB1;    // Music Search                    
 
-    const int PIN_PA0 = _PD3;    // Forward                            (?)
-    const int PIN_PA1 = _PD2;    // Rewind                             (?)
+    const int PIN_PA0 = _PD3;    // Forward                            
+    const int PIN_PA1 = _PD2;    // Rewind                             
  //   const int PIN_PA2 = 13;    // Data                          
 //    const int PIN_PA3 = 11;    // LCD Clock                          
-    const int PIN_PA4 = _PC7;     // Stop CD 
-    const int PIN_PA5 = _PB4;     // Pause CD
-    const int PIN_PA6 = _PB3;     // Play CD
-    const int PIN_PA7 = _PB2;     // PB2 Auto Pause
+    const int PIN_PA4 = _PC7;     // CD Stop 
+    const int PIN_PA5 = _PB4;     // CD Pause
+    const int PIN_PA6 = _PB3;     // CD Play
+    const int PIN_PA7 = _PB2;     // Event:CD Auto Pause
 
-    const int PIN_PB0 = _PD4;    // MUTE Play/Rec                      (?)
-    const int PIN_PB1 = _PD5;    // 1 Rewind, 0 Wind                   (?)
-    const int PIN_PB2 = _PC4;    // Wind/Rewind slope                  (?)
+    const int PIN_PB0 = _PD4;    // Mute                      
+    const int PIN_PB1 = _PD5;    // 1 Rewind, 0 Wind                   
+    const int PIN_PB2 = _PC4;    // Wind Fast/Slow                  
     const int PIN_PB3 = _PD6;    // Capstan Motor 1 on, 0 off
-    const int PIN_PB4 = _PC3;     // Cass. Key                          (?)
+    const int PIN_PB4 = _PC3;    // Cass. Key                          
 //    const int PIN_PB5 = 6;     // GND - unused
 //    const int PIN_PB6 = 4;     // GND - unused
 //    const int PIN_PB7 = 2;     // GND - unused

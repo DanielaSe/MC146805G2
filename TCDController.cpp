@@ -24,14 +24,15 @@ TCDController::TCDController(void) {
     pinMode(PIN_PA4, OUTPUT);
     pinMode(PIN_PA6, OUTPUT);
     pinMode(PIN_PA7, INPUT);
-    pinMode(PIN_PC4, INPUT);
+  //  pinMode(PIN_PC4, INPUT);
     digitalWrite(PIN_PA5, HIGH);
     digitalWrite(PIN_PA4, HIGH);
     digitalWrite(PIN_PA6, HIGH);
 
-    /* DEBUG ??? */
-    pinMode(PIN_PA7, OUTPUT);        
+    pinMode(PIN_PA7, OUTPUT);
     digitalWrite(PIN_PA7, HIGH);
+
+
 }
 
 
@@ -59,7 +60,7 @@ void TCDController::Update()
         Play();
     }
 
-    if(now - ms > interval) {
+    if(now - ms > BUTTON_INTERVAL) {
         ms = now;
         // set all control pins to high
         digitalWrite(PIN_PA6, HIGH);
@@ -67,12 +68,7 @@ void TCDController::Update()
         digitalWrite(PIN_PA4, HIGH);
     }
 
-    // read the input states and raise an event if they changed
-    int r =  GetOutputPins() & 0x18;
-    if (state != r) {
-        state = r;
-        if (state > 0) OnStateChangedEvent(state);
-    }
+
 }
 
 
@@ -83,6 +79,9 @@ void TCDController::Update()
  * *********************************************************************/
 void TCDController::Play()
 {
+    #ifdef DEBUG
+        Serial.println(":CD:Play()");
+    #endif
     playing = true;
     paused = false;
     digitalWrite(PIN_PA6, LOW); 
@@ -97,6 +96,9 @@ void TCDController::Play()
  * *********************************************************************/
 void TCDController::Pause(bool AutoStart) 
 {
+    #ifdef DEBUG
+        Serial.println(":CD:Pause()");
+    #endif
     paused = true;    
     digitalWrite(PIN_PA5, LOW);
     ms = millis();
@@ -116,6 +118,9 @@ void TCDController::Pause(bool AutoStart)
  * *********************************************************************/
 void TCDController::Stop()
 {  
+    #ifdef DEBUG
+        Serial.println(":CD:Stop()");
+    #endif
     playing = false;
     paused = false;
     digitalWrite(PIN_PA4, LOW);
@@ -124,17 +129,3 @@ void TCDController::Stop()
 
 
 
-/************************************************************************
- * GetOutputPins
- * get the current states of the CD-CPU
- * *********************************************************************/
-int TCDController::GetOutputPins()
-{
-    int r = 0;
-    if (digitalRead(PIN_PA5) == HIGH) { r += 0x01; }; 
-    if (digitalRead(PIN_PA4) == HIGH) { r += 0x02; }; 
-    if (digitalRead(PIN_PA6) == HIGH) { r += 0x04; };
-    if (digitalRead(PIN_PA7) == HIGH) { r += 0x08; };
-    if (digitalRead(PIN_PC4) == HIGH) { r += 0x10; };
-    return r;
-}

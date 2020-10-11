@@ -75,9 +75,7 @@ void TInputs::read()
    x |= readKeyLine(PIN_PD4,9);
    x |= readKeyLine(PIN_PD3,12);
 
-
    if (x != oldPressedKeys) {
-
       pressedKeys = x;
       oldPressedKeys = x;
       LockKeyBoard = now + LockKeyBoardTime;
@@ -121,20 +119,18 @@ void TInputs::ReadCassetteState()
    digitalWrite(PIN_PD4, LOW);
    digitalWrite(PIN_PD5, LOW);
    digitalWrite(PIN_PD6, LOW);
-   digitalWrite(PIN_PD7, LOW);
+   digitalWrite(PIN_PD7, LOW); // Record only
 
    int x = 0;
    x |= readKeyLine(PIN_PD5, 0);
    x |= readKeyLine(PIN_PD6, 3);
    x |= readKeyLine(PIN_PD7, 6);
 
-   if (x != cassetteState) {
+   if (x != cassetteState) cassetteState = x;
 
-      cassetteState = x;
- //     return cassetteState != 0;
-   }
- //  return false;
 }
+
+
 
 
 int TInputs::readKeyLine(int pin, int shl) 

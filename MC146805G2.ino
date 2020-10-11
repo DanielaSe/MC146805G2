@@ -22,15 +22,16 @@
  * 
  * What is different to the orignal - because I liked to improve the handling
  * 
+ * - Music search can not only jump to the next/previous song it can jump to
+ *   more when pressing next/previous up to 9 times
+ * 
  * - When pressing record and the tape reader recognises the tape is
  *   at the very beginning it moves forward until the tape really starts.
- *   Avoids to record music on the non magnetic part of the tape.
- * 
- * - Pause does not move the slide servo - otherwise it would be the
- *   same behaviour as stop. Need some further checks if this handling is ok.
+ *   Avoids to record music on the non magnetic part of the tape. During this procedure
+ *   record is blinking
  * 
  * - Programming works differently. The tape rewinds when you start
- *   the program, not before. also side B is supported for programming
+ *   the program, not before. Also side B is supported for programming
  * 
  * - Demo mode only supports to check the keys (eq. demo mode 0)
  * 
@@ -41,8 +42,16 @@
  * - Not sure about the exact handling of the mute output. In this case for forward/rewind
  *   it is only used when in play mode
  * 
+ * - In Record-Mode the reverse key only allows A->B and does not show other reverse modes
  * 
+ * - In case of rewind, when the tape moves to the very end it moves back forward a little bit
+ *   to avoid beeing on a splice and the tape reader does not recognise the transparent tape
  * 
+ * - The button "record" can be used to enable or disable record mode. Stop always disables the
+ *   record mode.
+ * 
+ * - Auto-Record mode shows the number of recorded tracks. Always wondered why Philips was not using
+ *   the two digits.
  * 
  * 
  * 
@@ -75,75 +84,71 @@ TTapeController tape = TTapeController(&lcd, &input);
 bool blink = false;
 int cycle = 0;
 int OldState = 0;
+long IgnoreCDEvent = 0;
+long IgnoreNewTrackEvent = 0;
 
 void NewTrack()
 {
+    long ms = millis();
+    if (ms < IgnoreNewTrackEvent) return;
+    IgnoreNewTrackEvent = ms + 4000;
+
     tape.NewTrack();
     #ifdef DEBUG
-        Serial.println("IRQ Detected");
+        Serial.println("+IRQ:NewTrack");
     #endif
 }
 
-void OnCDPlayerStateChanged(const int state)
+void CDPlayerStartsNewTrack()
 {
     #ifdef DEBUG
-        Serial.print("CD-Player State: ");
-        Serial.println(state);
+        Serial.println("+IRQ:CDPlayerStartsNewTrack");
     #endif
-    // we are not going to use this events. we might losing them from time to time since the two
-    // CPUs are not synced anymore. However, we know when we press Play, Pause and Stop
-    // For the events we consider the 4 seconds pause during auto-rec mode.
+    // we need to ignore more rising signals when they are too
+    // short behind. We do not want to handle them twice.
+    // Since the CPUs are not synced anymore the behaviour is 
+    // different and we need to consider this.
+    long ms = millis();
+    if (ms < IgnoreCDEvent) return;
+    IgnoreCDEvent = ms + 1000;
 
-    // CD Pause    
-    if ((bool)(state & PIN_PC4)) {
-        if (tape.IsOnAutoRecord()) {
-            cd.Pause(true);
-        }
-
+    if (tape.IsOnAutoRecord()) 
+    {
+        cd.Pause(true);
+        tape.NewAutoRecordTrackStarted();
     }
 
-    // CD Auto Pause 
-    if ((bool)(state & PIN_PA7)) {
-
-
-    }
-
-    // CD Play 
-    if ((bool)(state & PIN_PA6)) {
-
-
-    }
 
 }
 
 
-void setup() {
-
-
+void setup() 
+{
     attachPinChangeInterrupt(9, NewTrack, FALLING);
+    attachPinChangeInterrupt(18, CDPlayerStartsNewTrack, RISING);
+    
     pinMode(PIN_BUILD_IN_LED, OUTPUT);
 
+    delay(10);
     #ifdef DEBUG
         Serial.begin(9600); 
+        Serial.println("");
+        Serial.println("");
+        Serial.println("Ready.");
     #endif
-    
-    cd.OnStateChanged(OnCDPlayerStateChanged);
-
-
-    delay(10);
 }
 
 
-bool CHECK_BIT(int value, int b) {
-
+bool CHECK_BIT(int value, int b) 
+{
     return value & b;
 }
 
 String StateToString(int value) 
 {
-    String result = "State: " + String(value,DEC) + " ";   
-    if (!CHECK_BIT(value, input.IN_HEAD_SERVO)) { result += "HeadServo "; }
-    if (!CHECK_BIT(value, input.IN_PAUSE_CASS)) { result += "Pause "; }
+    String result = "+Tape: " + String(value,DEC) + " ";   
+    if (CHECK_BIT(value, input.IN_HEAD_SERVO)) { result += "HeadServo "; }
+    if (CHECK_BIT(value, input.IN_PAUSE_CASS)) { result += "Pause "; }
     if (CHECK_BIT(value, input.IN_REC)) { result += "Rec "; }
     if (CHECK_BIT(value, input.IN_REC_DISC_END)) { result += "RecDiscEnd "; }
     if (CHECK_BIT(value, input.IN_REC_SIDE_A)) { result += "RecSideA "; }
@@ -159,36 +164,36 @@ String KeyToString(int value)
     switch (value)
     {
 
-        case 0x0001 : return "Key:Reverse Mode";
-        case 0x0002 : return "Key:Rec Mode    "; 
-        case 0x0004 : return "Key:Direction   "; 
+        case 0x0001 : return "+Key:Reverse Mode";
+        case 0x0002 : return "+Key:Rec Mode"; 
+        case 0x0004 : return "+Key:Direction"; 
 
-        case 0x0008 : return "Key:Play       ";
-        case 0x0010 : return "Key:Rewind     "; 
-        case 0x0020 : return "Key:Forward    "; 
+        case 0x0008 : return "+Key:Play";
+        case 0x0010 : return "+Key:Rewind"; 
+        case 0x0020 : return "+Key:Forward"; 
 
-        case 0x0040 : return "Key:Stop/Clear "; 
-        case 0x0080 : return "Key:Pause      "; 
-        case 0x0100 : return "Key:Rec        "; 
+        case 0x0040 : return "+Key:Stop/Clear"; 
+        case 0x0080 : return "+Key:Pause"; 
+        case 0x0100 : return "+Key:Rec"; 
 
-        case 0x0200 : return "Key:Next       "; 
-        case 0x0400 : return "Key:Previous   ";
-        case 0x0800 : return "Key:Program    "; 
+        case 0x0200 : return "+Key:Next"; 
+        case 0x0400 : return "+Key:Previous";
+        case 0x0800 : return "+Key:Program"; 
 
-        case 0x1000 : return "Key:CD Play    "; 
-        case 0x2000 : return "Key:CD Stop    "; 
-        case 0x4000 : return "Key:CD Pause   "; 
+        case 0x1000 : return "+Key:CD Play"; 
+        case 0x2000 : return "+Key:CD Stop"; 
+        case 0x4000 : return "+Key:CD Pause"; 
 
     }
-    return "Unknonw key    "; 
+    return "+Key:Unknonw"; 
 }
 
 
-void loop() {
+void loop() 
+{
 
 
     // Read Keys
-  
     input.read();
 
  
@@ -237,13 +242,13 @@ void loop() {
 
         // Tape Deck
         case input.CASS_PLAY:
-            if (tape.IsOnSyncRecord() || tape.IsOnAutoRecord()) break;
+            if (tape.PlayProgramm || tape.IsOnSyncRecord() || tape.IsOnAutoRecord()) break;
             tape.Play(); 
             break;
 
         case input.CASS_PAUSE:
             if (tape.IsOnSyncRecord() || tape.IsOnAutoRecord()) break; 
-            if (tape.Programming) lcd.ShowError();
+            if (tape.PlayProgramm || tape.Programming) lcd.ShowError();
             else tape.Pause();
             break;
 
@@ -254,20 +259,33 @@ void loop() {
             break;
 
         case input.CASS_REC_MODE:
-            if (tape.Programming || tape.Recording) lcd.ShowError();
+            if (tape.PlayProgramm || tape.Programming || tape.Recording) lcd.ShowError();
             else tape.ToggleRecordMode();
             break;
             
         case input.CASS_REC:
-            if (tape.Programming || tape.Recording) lcd.ShowError();
+            if (tape.PlayProgramm || tape.Programming || tape.Recording) lcd.ShowError();
             else tape.StartRecordMode();
             break;
-    
+
+        case input.CASS_REVERSE_MODE:
+            if (tape.PlayProgramm || tape.Programming) lcd.ShowError();
+            else tape.ToggleReverseMode();
+            break;
+
+        case input.CASS_NEXT:
+        case input.CASS_PREV:
+        case input.CASS_FORWARD:
+        case input.CASS_REWIND:
+        case input.CASS_PROG:
+        case input.CASS_DIRECTION:
+            if (tape.IsOnRecord()) lcd.ShowError();
+            break;
     }
 
 
     // other tape deck keys only if record is not active
-    if (!tape.IsOnRecord()) {
+    if (!tape.IsOnRecord() && !tape.PlayProgramm) {
         switch(input.pressedKeys)
         {
             case input.CASS_NEXT:
@@ -290,19 +308,14 @@ void loop() {
 
             case input.CASS_FORWARD:
                 if (tape.Programming || tape.Recording) lcd.ShowError();
-                else if (tape.GetDirection() > 0 ) tape.WindLeft(); 
+                else if (tape.GetDirection() < 0 ) tape.WindLeft(); 
                 else tape.WindRight();
                 break;
 
             case input.CASS_REWIND:
                 if (tape.Programming || tape.Recording) lcd.ShowError();
-                else if (tape.GetDirection() < 0 ) tape.WindLeft(); 
+                else if (tape.GetDirection() > 0 ) tape.WindLeft(); 
                 else tape.WindRight();
-                break;
-
-            case input.CASS_REVERSE_MODE:
-                if (tape.Programming || tape.Recording) lcd.ShowError();
-                else tape.ToggleReverseMode();
                 break;
 
             case input.CASS_PROG:
@@ -322,14 +335,18 @@ void loop() {
 
 
     if (tape.AutoRestart && !tape.SearchTrack && input.pressedKeys != input.CASS_FORWARD && input.pressedKeys != input.CASS_REWIND) {
+        #ifdef DEBUG
+            Serial.println("Autorestart");
+        #endif
         tape.Play();
     }
+    
 
-    // for easier debugging using the internal led to show states
+    // for easier debugging we can use the internal led to show states
     #ifdef DEBUG
- /*       if (tape.StateTapeReader == true) {
+     /*   if (digitalRead(24) == HIGH) {
             digitalWrite(PIN_BUILD_IN_LED, HIGH);
-            delay(5000);
+            delay(1000);
         }
         else {
             digitalWrite(PIN_BUILD_IN_LED, LOW);
@@ -348,7 +365,10 @@ void loop() {
             if (input.pressedKeys != 0) {
                 Serial.println(KeyToString(input.pressedKeys));
             }
-            int state = input.GetCassetteState();
+
+
+            tape.GetState();
+            int state = tape.CurrentState;
             if (state != OldState)
             {
                 Serial.println(StateToString(state));
@@ -357,7 +377,7 @@ void loop() {
             
         #endif   
 
-
+        
         tape.Update();
         lcd.Update();
     }
