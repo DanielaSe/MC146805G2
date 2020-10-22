@@ -1,61 +1,74 @@
 /***************************************************************************
  * 
- * Replacement for uP MC146805G2 in Philips 70CD555
+ * Replacement for uP MC146805G2 in Philips 70CD555 
+ * Philips Code 4822 157 50967
+ * 
+ * 
  * 
  *      www.70cd555.com         
  *      Daniela Sefzig, Oct.2020
  * 
  * 
  * 
- * Direct replacement for item 7501.
- * Still work in progress. Needs more testing.
+ * Direct replacement for item 7501. Use at your own risk!
  * 
  * Requires the following changings on the uProc panel:
+ * 
  * - put a socket instead of the MC146805G2 and insert replacement PCB
- * - use additional small clock PCB for the CD-Player CPU with 4MHz crystal
+ * 
+ * - Revision A 
+ *   requires an additional small clock PCB for the CD-Player CPU with 4MHz crystal
  *   (powering the clock with inverters was not stable, maybe retry with the next revision)
+ *   Remove the bridge close to pin 15 when using the replacement clock
+ * 
+ * - Revision B
+ *   In progress...
  * 
  * 
- * The original CPU runs on 8.7MHz - Arduino is almost as twice as fast with 16MHz, 
+ * The original CPU runs on 8.7MHz - The AT1284P is almost as twice as fast with 16MHz, 
  * thus the timing has to be different. Only one key press at a time is supported, except the demo keys.
  * 
  * 
  * What is different to the orignal - because I liked to improve the handling
  * 
- * - Music search can not only jump to the next/previous song it can jump to
- *   more when pressing next/previous up to 9 times
+ * Changed behaviour:
+ * - Music search supports up to 9 tracks when pressing next/Previous
+ *   Original behaviour: only next or previous track
  * 
+ * - Programming works differently. The tape rewinds when you start
+ *   the program, not before. Also side B is supported! Therefore, up to 40 tracks can 
+ *   be programmed.
+ *   Original behaviour: 20 tracks only one side
+ * 
+ *  - The button "record" can be used to enable or disable record mode. In addition, the Stop key 
+ *   always disables the record mode.
+ *   Original behaviour: Record button only activates record mode
+ * 
+ * New features:
  * - When pressing record and the tape reader recognises the tape is
  *   at the very beginning it moves forward until the tape really starts.
  *   Avoids to record music on the non magnetic part of the tape. During this procedure
  *   record is blinking
  * 
- * - Programming works differently. The tape rewinds when you start
- *   the program, not before. Also side B is supported for programming
- * 
- * - Demo mode only supports to check the keys (eq. demo mode 0)
- * 
- * - Since the CD CPU is not snyced anymore the events from the CPU
- *   might not appear - or at least not sure when they get fired because there
- *   is no documentation. Events just used in auto-rec mode.
- * 
- * - Not sure about the exact handling of the mute output. In this case for forward/rewind
- *   it is only used when in play mode
- * 
  * - In Record-Mode the reverse key only allows A->B and does not show other reverse modes
  * 
  * - In case of rewind, when the tape moves to the very end it moves back forward a little bit
- *   to avoid beeing on a splice and the tape reader does not recognise the transparent tape
- * 
- * - The button "record" can be used to enable or disable record mode. Stop always disables the
- *   record mode.
+ *   to avoid being on a splice and the tape reader does not recognise the transparent tape
  * 
  * - Auto-Record mode shows the number of recorded tracks. Always wondered why Philips was not using
- *   the two digits.
+ *   the two digits and always displays 00?
  * 
  * 
  * 
- * Todo: find a way to enable the oscillator without the original CPU
+ * Known limitations:
+ * - Demo mode only supports to check the keys (eq. demo mode 0)
+ * 
+ * - In some cases on some cd's the new track irq does not fire. a possible reason might
+ *   be the fact that the cpu's are not synchronised
+ * 
+ * 
+ * 
+ * 
  * 
  * 
  * 
@@ -112,7 +125,7 @@ void CDPlayerStartsNewTrack()
     if (ms < IgnoreCDEvent) return;
     IgnoreCDEvent = ms + 1000;
 
-    if (tape.IsOnAutoRecord()) 
+    if (tape.IsOnAutoRecord() && tape.IsRecording()) 
     {
         cd.Pause(true);
         tape.NewAutoRecordTrackStarted();
@@ -259,12 +272,12 @@ void loop()
             break;
 
         case input.CASS_REC_MODE:
-            if (tape.PlayProgramm || tape.Programming || tape.Recording) lcd.ShowError();
+            if (tape.PlayProgramm || tape.Programming || tape.IsRecording()) lcd.ShowError();
             else tape.ToggleRecordMode();
             break;
             
         case input.CASS_REC:
-            if (tape.PlayProgramm || tape.Programming || tape.Recording) lcd.ShowError();
+            if (tape.PlayProgramm || tape.Programming || tape.IsRecording()) lcd.ShowError();
             else tape.StartRecordMode();
             break;
 
@@ -307,24 +320,24 @@ void loop()
                 break;
 
             case input.CASS_FORWARD:
-                if (tape.Programming || tape.Recording) lcd.ShowError();
+                if (tape.Programming || tape.IsRecording()) lcd.ShowError();
                 else if (tape.GetDirection() < 0 ) tape.WindLeft(); 
                 else tape.WindRight();
                 break;
 
             case input.CASS_REWIND:
-                if (tape.Programming || tape.Recording) lcd.ShowError();
+                if (tape.Programming || tape.IsRecording()) lcd.ShowError();
                 else if (tape.GetDirection() > 0 ) tape.WindLeft(); 
                 else tape.WindRight();
                 break;
 
             case input.CASS_PROG:
-                if (tape.Recording) lcd.ShowError();
+                if (tape.IsRecording()) lcd.ShowError();
                 else tape.ProgrammKeyPressed(); 
                 break;
 
             case input.CASS_DIRECTION:
-                if (tape.Programming || tape.Recording) lcd.ShowError();
+                if (tape.Programming || tape.IsRecording()) lcd.ShowError();
                 else tape.ToggleDirection();
                 break;
 
@@ -354,8 +367,10 @@ void loop()
     #endif   
 
     input.pressedKeys = 0;
+    tape.Update();
     cd.Update();
-    
+    tape.Update();
+
     cycle++;
     if (cycle > 1) {
         cycle = 0;
@@ -368,7 +383,7 @@ void loop()
 
 
             tape.GetState();
-            int state = tape.CurrentState;
+            int state = tape.GetCurrentState();
             if (state != OldState)
             {
                 Serial.println(StateToString(state));
@@ -378,14 +393,14 @@ void loop()
         #endif   
 
         
-        tape.Update();
+        
+
         lcd.Update();
     }
   
 
-
-
-    delay(40);
+    
+    delay(20);
 
     if (tape.AutoRestart) {
         // a wee delay if user only hit forward/rewind during playback

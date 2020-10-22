@@ -66,8 +66,10 @@ TTapeController::TTapeController(TDisplay *_display, TInputs *_inputs) {
  * 
  * *********************************************************************/
 int TTapeController::GetDirection() { return direction;}
-bool TTapeController::Playing() { return playing; }
-bool TTapeController::Paused() { return paused; }
+bool TTapeController::IsPlaying() { return playing; }
+bool TTapeController::IsRecording() { return Recording; }
+bool TTapeController::IsPaused() { return paused; }
+int TTapeController::GetCurrentState() { return CurrentState; }
 int TTapeController::InRange(int value, int min, int max)
 {
     if (value < min) { value = max; }
@@ -142,7 +144,6 @@ void TTapeController::Play()
 
     if (!playing && RecordMode != recNone) {
         Recording = true;
-        ReverseMode = rmNone;
         if (RecordMode == recAuto) {
             AutoRecordTrackNumber = 1;
             lcd->ShowDigit(AutoRecordTrackNumber);
@@ -247,10 +248,12 @@ void TTapeController::Stop()
     paused = false;
     Recording = false;
     IgnoreStateTapeReader = 0;
+
     if (ReverseMode != rmNone && ReverseMode != rmEndless) {
         RepeatSecondSide = false;
         RewindOneSide = false;
         ReverseMode = rmNone;
+        Serial.println("2");
         lcd->ReverseMode((int)ReverseMode);
     }
     delay(150);
@@ -437,7 +440,7 @@ int TTapeController::ProgrammedTracks()
         Serial.println(":ProgrammedTracks()");
     #endif
     int x = 0;
-    for (byte i = 0; i <= 20; i++) {
+    for (byte i = 0; i <= MAX_PROGRAMM_LENGTH; i++) {
         if (Programm[i]) x++;
     }
     return x;
@@ -499,7 +502,7 @@ void TTapeController::StartProgramm()
 bool TTapeController::AnyProgrammedTracksAfter(int x)
 {
     x++;
-    for (byte i = x; i <= 20; i++) {
+    for (byte i = x; i <= MAX_PROGRAMM_LENGTH; i++) {
         if (Programm[i]) return true;
     }
     return false;
@@ -517,7 +520,7 @@ void TTapeController::ClearProgramm()
         Serial.println(":ClearProgramm()");
     #endif
     Programming = false;
-    for (byte i = 0; i <= 20; i++) {
+    for (byte i = 0; i <= MAX_PROGRAMM_LENGTH; i++) {
         Programm[i] = false;
     }
     lcd->Clear();
@@ -531,7 +534,7 @@ void TTapeController::ClearProgramm()
  * *********************************************************************/
 bool TTapeController::HasProgramm()
 {
-    for (byte i = 0; i <= 20; i++) {
+    for (byte i = 0; i <= MAX_PROGRAMM_LENGTH; i++) {
         if (Programm[i]) return true;
     }    
     return false;
@@ -546,11 +549,11 @@ bool TTapeController::HasProgramm()
 int TTapeController::GetNextProgrammedTrack()
 {
     int i = TrackNumber + 1;
-    if (i > 20) { i = 1; }
-    int max = 20; // in there are no tracks in the programm
+    if (i > MAX_PROGRAMM_LENGTH) { i = 1; }
+    int max = MAX_PROGRAMM_LENGTH; // in there are no tracks in the programm
     while (!Programm[i] && max > 0) {
         i++;
-        if (i > 20) { i = 1; }
+        if (i > MAX_PROGRAMM_LENGTH) { i = 1; }
         max--;
     }
     if (max == 0) { TrackNumber = 0; }
@@ -632,17 +635,17 @@ void TTapeController::GetTrackForProgramm(int value) {
 
     if (value < 0) {
         if (Programming) {   
-            TrackNumber = InRange(TrackNumber - 1, 1, 20);
+            TrackNumber = InRange(TrackNumber - 1, 1, MAX_PROGRAMM_LENGTH);
         }
         else {
-            TrackNumber = 20;
+            TrackNumber = MAX_PROGRAMM_LENGTH;
             Programming = true;
         }
 
     }
     else {
          if (Programming) {   
-            TrackNumber = InRange(TrackNumber + 1, 1, 20);
+            TrackNumber = InRange(TrackNumber + 1, 1, MAX_PROGRAMM_LENGTH);
         }
         else {
             TrackNumber = 1;
@@ -1008,6 +1011,7 @@ void TTapeController::StartRecordMode()
     // ReverseMode can only be A->B
     if (ReverseMode != rmNone && ReverseMode != rmBothSides) {
         ReverseMode = rmBothSides;
+        Serial.println("3");
         lcd->ReverseMode((int)ReverseMode);
     }
 
@@ -1145,7 +1149,7 @@ void TTapeController::Update()
             
             if (!Programm[ProgrammPosition] && !SearchTrack) {
 
-                if (!AnyProgrammedTracksAfter(ProgrammPosition) || ProgrammPosition == 20) EndProgramm();
+                if (!AnyProgrammedTracksAfter(ProgrammPosition) || ProgrammPosition == MAX_PROGRAMM_LENGTH) EndProgramm();
                 else {
                     NextTrack();           
                     lcd->ShowDigit(ProgrammPosition);
@@ -1165,28 +1169,33 @@ void TTapeController::Update()
         return;
     }
 
-    // when fast winding check if tape is at the end 
+    // when fast winding, check if tape is at the end 
     if (FastWinding != fwNone) {
    
         if (StateTapeReader || StateReelMotor) {
-            if (RewindOneSide) {
+            // in case of rewind and tape end just put a little bit forward
+            // only to avoid that the tape is on the very end and the tape reader
+            // cannot shine through because of a splice
+            bool NeedToStart = (FastWinding == fwRewind && StateReelMotor && !StateTapeReader) || RewindOneSide;
+        
+                       
+            #ifdef DEBUG
+                Serial.println("Cass reached its end");
+                if (StateReelMotor) Serial.println("detected by StateReelMotor");
+            #endif     
+            Stop();    
+            delay(100); 
+            GetState();
+            if (NeedToStart) {
                 Play();
-                RewindOneSide = false;
-            }
-            else {
-                // in case of rewind and tape end just put a little bit forward
-                // only to avoid that the tape is on the very end and the tape reader
-                // cannot shine through because of a splice
-                if (FastWinding == fwRewind && StateReelMotor && !StateTapeReader) {
-                    Stop();
-                    delay(100); 
-                    Play();
-                    delay(500);                                
-                }
-                Stop();
-            }          
+                delay(500); 
+                if (!RewindOneSide) Stop();
+                 
+            } 
+            RewindOneSide = false;
             return;
         }
+  
     }
 
 
@@ -1244,12 +1253,17 @@ void TTapeController::Update()
         if (StateReelMotor || (StateTapeReader && !StartedWithEmptyTape)) {
             if (paused) return;
             if (Recording) {
+                #ifdef DEBUG
+                    Serial.println(">RecReverseMode indicated");  
+                    Serial.println(ReverseMode);
+                #endif                
                 if (ReverseMode == rmBothSides) {
+                    Serial.println(">ToggleDirection");  
                     ToggleDirection();
                     ReverseMode = rmNone;
-                    if (!CheckIfRecordingIsPossible()) return;
-                    return;
+                    if (CheckIfRecordingIsPossible()) return;
                 }
+                Serial.println(">Stop");  
                 Stop();
                 return;
             }
