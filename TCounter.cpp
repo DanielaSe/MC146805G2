@@ -371,14 +371,9 @@ void TCounter::Update()
         
     }
 
-
-//    if (SplashScreen > ms) return;
-
     if (lastms == 0) { lastms = ms; }
     long elapsed = ms - lastms;
-
     int PreviousSeconds = Seconds;
-
 
     switch (State) 
     {
@@ -436,16 +431,17 @@ void TCounter::Update()
 #endif;
 
     if (btnPressed && !b && btnPressTime > 0) {
+
+        Memory[MemoryPosition] = Seconds;
+        MemoryPosition++;
+        if (MemoryPosition >= MAX_MEMORY) MemoryPosition = 0;
+        Modified = true;
         #ifdef DEBUG
             Serial.print("+Add to Memory Position: ");
             Serial.print(MemoryPosition);
             Serial.print(" Time: ");
             Serial.println(Seconds);
-
         #endif;
-        Memory[MemoryPosition] = Seconds;
-        MemoryPosition++;
-        if (MemoryPosition > MAX_MEMORY) MemoryPosition = 0;
     }
 
     if (!btnPressed && b) btnPressTime = ms;
@@ -460,6 +456,7 @@ void TCounter::Update()
                 Reset();
                 ShowTapeLength = ms + 2000;
                 btnPressTime = 0;
+                Modified = true;
             }
         }         
 
@@ -495,12 +492,15 @@ void TCounter::Update()
     if (!Modified && ScreenSaver > 0 && ms > ScreenSaver) {
         #ifdef DEBUG
             Serial.println("+Screensaver active");
+            Serial.println(ScreenSaver);
+            Serial.println(ms);
         #endif
         oled.clearDisplay();
         oled.display();   
         ScreenSaver = 0;
         return;
     }
+
 
     if (!Modified) return;
 

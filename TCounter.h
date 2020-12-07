@@ -47,7 +47,7 @@ class TCounter
 
         byte SCREEN_OFFSET_X = 12;
         byte SCREEN_OFFSET_Y = 39;
-        const int SCREEN_SAVER_DELAY = 1000 * 60 * 5; // 5 minutes
+        const long SCREEN_SAVER_DELAY = 1000 * 60 * 5; // 5 minutes
 
         float CassetteLengthInSeconds = 2700.0;
         
