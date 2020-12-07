@@ -4,8 +4,23 @@
 			"fsPath": "$ROOTPATH$/TTapeController.cpp",
 			"bookmarks": [
 				-1,
-				1190,
-				323,
+				414,
+				634,
+				-1,
+				-1,
+				-1,
+				-1,
+				-1,
+				-1,
+				-1
+			]
+		},
+		{
+			"fsPath": "$ROOTPATH$/TCounter.cpp",
+			"bookmarks": [
+				-1,
+				143,
+				70,
 				-1,
 				-1,
 				-1,

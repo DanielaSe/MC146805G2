@@ -1,5 +1,5 @@
 
-
+#include "defines.h"
 #include "TInputs.h"
 #include "Arduino.h"
 #include "TPinLayout.h"
@@ -11,6 +11,7 @@
 
 TInputs::TInputs(void) {
 
+   DemoMode = 0;
    pinMode(PIN_PD0, OUTPUT); 
    pinMode(PIN_PD1, OUTPUT);
    pinMode(PIN_PD2, OUTPUT);
@@ -42,20 +43,15 @@ TInputs::TInputs(void) {
 void TInputs::read() 
 {
 
+
+
    long now = millis();
    if (LockKeyBoard > now) {
       return;
    }
    pressedKeys = 0; 
 
-/*
-   // Skip one cycle to simulate 8MHz (Arduino = 16MHz)
-   mhz += 1;
-   if (mhz < 2) {
-      return;
-   }
-   mhz = 0;
-*/
+
 
    // ensure the pins are down!
    digitalWrite(PIN_PD0, LOW);
@@ -86,18 +82,44 @@ void TInputs::read()
       pressedKeys |= x & CASS_FORWARD;
    }
 
-  if (x == 56) {// (CASS_REWIND || CASS_FORWARD || CASS_PLAY) != 0; 
-     DemoMode = !DemoMode;
+  if (x == 56) {// (CASS_REWIND || CASS_FORWARD || CASS_PLAY) 
+      DemoMode = 1;
+      #ifdef DEBUG
+         Serial.println("> Entering demo mode 1");
+      #endif
   }
-  if (DemoMode && x == CASS_PLAY) {
+
+
+  if (DemoMode > 0 && x == CASS_PLAY) {
      pressedKeys = 0;
-     DemoMode = false;
+     DemoMode += 1;
+           #ifdef DEBUG
+         Serial.print("> Entering demo mode ");
+         Serial.println(DemoMode);
+      #endif
+     if (DemoMode >= 4) { 
+         #ifdef DEBUG
+            Serial.println("> Entering demo mode 1");
+         #endif
+         DemoMode = 1; 
+        }
   }
+  if (DemoMode > 0 && x == CASS_STOP) {
+         #ifdef DEBUG
+            Serial.println("> Disable demo mode");
+         #endif
+         DemoMode = 4; 
+  }
+
 
 
 }
 
-bool TInputs::IsDemoMode() {
+void TInputs::DisableDemoMode() {
+   DemoMode = 0;
+}
+
+int TInputs::GetDemoMode() {
 
    return DemoMode;
 }
@@ -152,6 +174,19 @@ int TInputs::getKey(int shl)
    if (digitalRead(PIN_PC7) == HIGH) { x |= 0x04; }
    return x << shl;
 
+}
+
+int TInputs::ReadKeySet1()
+{
+   if (pressedKeys == CASS_NEXT) return 1;
+   if (pressedKeys == CASS_PREV) return -1;
+   return 0;
+}
+int TInputs::ReadKeySet2()
+{
+   if (pressedKeys == CASS_FORWARD) return 1;
+   if (pressedKeys == CASS_REWIND) return -1;   
+   return 0;
 }
 
 

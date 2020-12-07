@@ -16,7 +16,10 @@ class TInputs
 
         void read();
         int GetCassetteState();
-        bool IsDemoMode();
+        int GetDemoMode();
+        void DisableDemoMode();
+        int ReadKeySet1();
+        int ReadKeySet2();
 
     
         int pressedKeys = 0;
@@ -67,13 +70,10 @@ class TInputs
         int oldPressedKeys = 0;
         int LockKeyBoard = 0;
         int LockKeyBoardTime = 100;
-        bool DemoMode = false;
-        int DemoStep = 0;
+        int DemoMode = 0;
 
         long ms = 0;
         long interval = 30;
-
-        int mhz = 0;
 
 
 };

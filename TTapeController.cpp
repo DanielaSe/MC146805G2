@@ -19,6 +19,7 @@
 #include "TPinLayout.h"
 #include "TDisplay.h"
 #include "TInputs.h"
+#include "TCounter.h"
 #include "defines.h"
 
 
@@ -26,7 +27,7 @@
  * constructor
  * 
  * *********************************************************************/
-TTapeController::TTapeController(TDisplay *_display, TInputs *_inputs) {
+TTapeController::TTapeController(TDisplay *_display, TInputs *_inputs, TCounter *_counter) {
 
 
     TrackNumber = 1;
@@ -37,6 +38,7 @@ TTapeController::TTapeController(TDisplay *_display, TInputs *_inputs) {
     direction = 1;
     inputs = _inputs;
     lcd = _display;
+    counter = _counter;
     lcd->Clear();        
     StartUp = true;
     ClearProgramm();
@@ -108,6 +110,25 @@ void TTapeController::Play()
     GetState();
     AutoRestart = false;
 
+
+
+    if (Programming) {
+
+        switch(TrackNumber)
+        {
+            case 0:
+                MoveToPosition(true, 0);
+                return;
+            case -1:
+            case -2:
+            case -3:
+                MoveToPosition(true, counter->GetMemoryPosition(TrackNumber * -1));
+                return;
+        }
+        lcd->ShowError(0);
+        return;
+    }
+
     if (lcd->WaitingForInput()) lcd->Clear();
 
     
@@ -126,6 +147,7 @@ void TTapeController::Play()
         paused = false;
         SetMute(false);
         lcd->Play();
+        counter->Play();
         return;
     }
 
@@ -178,6 +200,7 @@ void TTapeController::Play()
     }
     
     SetMute(false);
+    counter->Play();
     lcd->Play();
     FastWinding = fwNone;
     playing = true;
@@ -185,6 +208,7 @@ void TTapeController::Play()
     SearchTrack = false;
     SearchTrackNumber = 0;
     TrackFound = false;
+    DesiredCapstanState = true;
     if (ReverseMode != rmNone) {
         RepeatSecondSide = false;
         RewindOneSide = false;
@@ -199,10 +223,15 @@ void TTapeController::Play()
     // give it some time to gain speed before enable audio
     delay(200);
     SetMute(false);
+    GetState();
 }
 
 
-
+void TTapeController::StopKeyPressed()
+{
+    GotoPosition = -1;
+    Stop();
+}
 
 
 /************************************************************************
@@ -215,7 +244,7 @@ void TTapeController::Stop()
         Serial.println(":Stop()");
     #endif
 
-
+    counter->Stop();
 
     if (!playing && StateRecord) {
         StartRecordMode();
@@ -228,14 +257,16 @@ void TTapeController::Stop()
 
     SetMute(true);
 
-    if (paused) StartCapstan(); 
-    if (StateSlideServoUp) PushSlideServo();    
+ 
 
     digitalWrite(SET_FAST_WIND_RELAY, HIGH);
     digitalWrite(SET_FAST_WIND, HIGH);  
     digitalWrite(SET_WIND_LEFT, LOW);
     digitalWrite(SET_WIND_RIGHT, LOW);  
     
+
+    if (paused) StartCapstan(); 
+    if (StateSlideServoUp) PushSlideServo();   
     StopCapstan();
 
     
@@ -248,16 +279,17 @@ void TTapeController::Stop()
     paused = false;
     Recording = false;
     IgnoreStateTapeReader = 0;
-
+    DesiredCapstanState = false;
+/*
     if (ReverseMode != rmNone && ReverseMode != rmEndless) {
         RepeatSecondSide = false;
         RewindOneSide = false;
         ReverseMode = rmNone;
-        Serial.println("2");
         lcd->ReverseMode((int)ReverseMode);
     }
+*/
     delay(150);
-
+    GetState();
 }
 
 
@@ -284,7 +316,8 @@ void TTapeController::Pause()
     digitalWrite(SET_WIND_LEFT, LOW);
     digitalWrite(SET_WIND_RIGHT, LOW);     
     digitalWrite(SET_CAPSTAN_MOTOR, LOW); 
-    
+    counter->Stop();
+    DesiredCapstanState = false;
     paused = true;
     SearchTrack = false;
     FastWinding = fwNone; 
@@ -314,7 +347,7 @@ void TTapeController::WindLeft()
     Stop();
     GetState();
 
-    IgnoreStateTapeReader = ms + 2000;
+    IgnoreStateTapeReader = ms + 4000;
     if (AutoRestart && !SearchTrack) digitalWrite(SET_MUTE,LOW);
     else SetMute(true);
 
@@ -324,7 +357,7 @@ void TTapeController::WindLeft()
     digitalWrite(SET_FAST_WIND_RELAY, LOW);
     digitalWrite(SET_FAST_WIND, HIGH);
     delay(100); 
-    
+    counter->WakeUp();
     if (direction < 0) {
         digitalWrite(SET_WIND_LEFT, LOW);  
         digitalWrite(SET_WIND_RIGHT, HIGH);  
@@ -337,19 +370,22 @@ void TTapeController::WindLeft()
     PushSlideServo();
     delay(100);
     digitalWrite(SET_FAST_WIND, LOW);  
+    counter->FastWind(-1);
+    FastWinding = fwRewind;
     if (AutoRestart) {
         lcd->Play();
     }   
     if (direction < 0) {
         lcd->WindLeft();
-        FastWinding = fwRewind; 
+        FastWinding = fwForward; 
     }
     else {
         lcd->WindRight();
-        FastWinding = fwForward; 
+        FastWinding = fwRewind; 
     }  
 
     SearchTrack = false;
+    DesiredCapstanState = true;
     
 }
 
@@ -376,7 +412,7 @@ void TTapeController::WindRight()
     Stop();
     GetState();
 
-    IgnoreStateTapeReader = ms + 2000;
+    IgnoreStateTapeReader = ms + 4000;
 
     if (AutoRestart && !SearchTrack)digitalWrite(SET_MUTE,LOW);
     else SetMute(true);
@@ -386,7 +422,7 @@ void TTapeController::WindRight()
     digitalWrite(SET_FAST_WIND_RELAY, LOW);
     digitalWrite(SET_FAST_WIND, HIGH);
     delay(100); 
-    
+    counter->WakeUp();
     if (direction < 0) {
         digitalWrite(SET_WIND_RIGHT, LOW);  
         digitalWrite(SET_WIND_LEFT, HIGH);  
@@ -399,19 +435,21 @@ void TTapeController::WindRight()
     PushSlideServo();
     delay(100);
     digitalWrite(SET_FAST_WIND, LOW);   
+    counter->FastWind(1);
+    FastWinding = fwForward;
     if (AutoRestart) {
         lcd->Play();
     }
     if (direction < 0) {
         lcd->WindRight();
-        FastWinding = fwRewind; 
+     //   FastWinding = fwForward; 
     }
     else {
         lcd->WindLeft();
-        FastWinding = fwForward; 
+     //   FastWinding = fwRewind; 
     }
     SearchTrack = false;
-    
+    DesiredCapstanState = true;
 }
 
 
@@ -562,6 +600,28 @@ int TTapeController::GetNextProgrammedTrack()
 }
 
 
+void TTapeController::MoveToPosition(bool autoplay, int pos)
+{
+    ClearProgramm();
+    Stop();
+    GotoPositionAutoPlay = autoplay;
+    GotoPosition = pos;
+    int current = counter->GetCurrentPosition();
+    lcd->ShowDigit(-1);
+
+    #ifdef DEBUG
+        Serial.print(direction);
+        Serial.print(" C: ");
+        Serial.print(current);
+        Serial.print(" Goto: ");
+        Serial.print(GotoPosition);
+    #endif
+
+    if (current < GotoPosition) WindRight();
+    else WindLeft();
+    
+}
+
 
 /************************************************************************
  * ProgrammKeyPressed
@@ -570,6 +630,21 @@ int TTapeController::GetNextProgrammedTrack()
 void TTapeController::ProgrammKeyPressed()
 {
     if (lcd->WaitingForInput()) {
+
+
+        switch(TrackNumber)
+        {
+            case 0:
+                MoveToPosition(false, 0);
+                return;
+            case -1:
+            case -2:
+            case -3:
+                MoveToPosition(false, counter->GetMemoryPosition(TrackNumber * -1));
+                return;
+        }
+
+
 
         if (Programm[TrackNumber]) {
             Programm[TrackNumber] = false;
@@ -585,7 +660,7 @@ void TTapeController::ProgrammKeyPressed()
         lcd->ShowDigit(GetNextProgrammedTrack());
     }
     else {
-        lcd->ShowError();
+        lcd->ShowError(0);
     }
 
     
@@ -624,6 +699,7 @@ bool TTapeController::AddSearchTrackNumber(int value) {
 
 
 
+
 /************************************************************************
  * GetTrackForProgramm
  * Programm Track +/-
@@ -634,26 +710,32 @@ void TTapeController::GetTrackForProgramm(int value) {
 
 
     if (value < 0) {
-        if (Programming) {   
-            TrackNumber = InRange(TrackNumber - 1, 1, MAX_PROGRAMM_LENGTH);
-        }
+        if (Programming) TrackNumber = InRange(TrackNumber - 1, -3, MAX_PROGRAMM_LENGTH);    
         else {
-            TrackNumber = MAX_PROGRAMM_LENGTH;
+            TrackNumber = 0;
             Programming = true;
         }
-
     }
     else {
-         if (Programming) {   
-            TrackNumber = InRange(TrackNumber + 1, 1, MAX_PROGRAMM_LENGTH);
-        }
+        if (Programming) TrackNumber = InRange(TrackNumber + 1, -3, MAX_PROGRAMM_LENGTH);
         else {
             TrackNumber = 1;
             Programming = true;
         }       
     }
 
-    lcd->Programm(TrackNumber, (int)Programm[TrackNumber]);
+
+    if (TrackNumber == -3 && counter->GetMemoryPosition(3) < 0) TrackNumber = -2;
+    if (TrackNumber == -2 && counter->GetMemoryPosition(2) < 0) TrackNumber = -1;
+    if (TrackNumber == -1 && counter->GetMemoryPosition(1) < 0)
+    {
+        if (value > 0) TrackNumber = 0;
+        else TrackNumber = MAX_PROGRAMM_LENGTH;
+    } 
+
+    if (TrackNumber > 0) lcd->Programm(TrackNumber, (int)Programm[TrackNumber]);
+    else lcd->Programm(TrackNumber, 0);
+
 
 } 
 
@@ -825,9 +907,10 @@ void TTapeController::ToggleDirection()
     digitalWrite(SET_WIND_LEFT, LOW);  
     digitalWrite(SET_WIND_RIGHT, LOW);  
     
-    if (tries >= 1000) lcd->ShowError();
+    if (tries >= 1000) lcd->ShowError(2);
 
-
+    // some mechanism failed from time to time without giving it a little rest
+    delay(50);
     direction *= -1;
     if (isPlaying) Play();
     else
@@ -849,6 +932,7 @@ void TTapeController::PushSlideServo()
     #ifdef DEBUG
         Serial.println(":PushSlideServo()");
     #endif
+
     digitalWrite(SET_SLIDE_SERVO, LOW);
     delay(DELAY_SLIDE_SERVO);
     digitalWrite(SET_SLIDE_SERVO, HIGH);
@@ -923,6 +1007,31 @@ void TTapeController::StateToString()
 }
 
 /************************************************************************
+ * ReadyForInput
+ * 
+ * *********************************************************************/
+bool TTapeController::ReadyForInput()
+{
+    return !IsOnRecord() && !PlayProgramm && PauseTimer == 0;
+}
+
+bool TTapeController::GetTapeReader()
+{
+    return StateTapeReader;
+
+}
+
+
+/************************************************************************
+ * PauseAfterFourSeconds
+ * 
+ * *********************************************************************/
+void TTapeController::PauseAfterFourSeconds()
+{
+    PauseTimer = ms + 4000;
+}
+
+/************************************************************************
  * MoveRecPlaybackLever
  * 
  * *********************************************************************/
@@ -937,7 +1046,7 @@ void TTapeController::MoveRecPlaybackLever()
         Serial.println(WaitForState);
     #endif
   
-    int Error = 200;
+    int Error = 20;
     digitalWrite(SET_WIND_LEFT, LOW);  
     digitalWrite(SET_WIND_RIGHT, HIGH);  
     digitalWrite(SET_FAST_WIND, LOW); 
@@ -947,7 +1056,7 @@ void TTapeController::MoveRecPlaybackLever()
         GetState();
         Error--;
         if (Error <= 0) {
-            lcd->ShowError();
+            lcd->ShowError(3);
             break;
         }
     }
@@ -978,10 +1087,16 @@ void TTapeController::NewAutoRecordTrackStarted() {
 bool TTapeController::CheckIfRecordingIsPossible()
 {
     if ((direction > 0 && !RecordEnabledForSideA) || (direction < 0 && !RecordEnabledForSideB)) {
-        lcd->ShowError();
+        #ifdef DEBUG
+            Serial.println("+Record not allowed");
+        #endif
+        lcd->ShowError(0);
         Stop();
         return false;
     }
+    #ifdef DEBUG
+        Serial.println("+Let's start a record");
+    #endif
     return true;
 }
 
@@ -1003,7 +1118,7 @@ void TTapeController::StartRecordMode()
     }
     else RecordMode = recNone;
 
-    
+
 
     MoveRecPlaybackLever();
     lcd->RecordMode((int)RecordMode);
@@ -1011,7 +1126,6 @@ void TTapeController::StartRecordMode()
     // ReverseMode can only be A->B
     if (ReverseMode != rmNone && ReverseMode != rmBothSides) {
         ReverseMode = rmBothSides;
-        Serial.println("3");
         lcd->ReverseMode((int)ReverseMode);
     }
 
@@ -1031,6 +1145,7 @@ void TTapeController::StartRecordMode()
  * *********************************************************************/
 void TTapeController::GetState() 
 {
+
     CurrentState = inputs->GetCassetteState(); 
     StateSlideServoUp = (bool)((CurrentState & inputs->IN_SLIDE_SERVO) != 0);
     StateRecord = (bool)(CurrentState & inputs->IN_REC);
@@ -1049,6 +1164,10 @@ void TTapeController::GetState()
             IgnoreStateTapeReader = 0;
         }
     }
+
+    #ifdef IGNORE_TAPE_READER
+        StateTapeReader = false;
+    #endif
 }
 
 
@@ -1062,6 +1181,13 @@ void TTapeController::Update()
     ms = millis();
     GetState();
 
+
+
+    if (PauseTimer > 0 && PauseTimer < ms) {
+        Pause();
+        PauseTimer = 0;
+    }
+
     if (SwitchOffCapstan > 0 && SwitchOffCapstan < ms) {
         SwitchOffCapstan = 0;
         digitalWrite(SET_CAPSTAN_MOTOR, LOW); 
@@ -1069,6 +1195,27 @@ void TTapeController::Update()
             Serial.println("> Capstan Motor OFF");
         #endif
 
+        if (DesiredCapstanState != StateSlideServoUp) {
+
+            lcd->ShowError(4);
+        }
+
+    }
+
+    if (GotoPosition >= 0)
+    {
+
+        int c = counter->GetCurrentPosition();
+
+        bool found = counter->IsAtPosition(GotoPosition);
+
+        if (found)
+            {
+                GotoPosition = -1;  
+                lcd->ShowDigit(0);
+                if (GotoPositionAutoPlay) Play();
+                else Stop();
+            }
     }
 
     if (SwitchOnMusic > 0 && SwitchOnMusic < ms) {
@@ -1083,10 +1230,12 @@ void TTapeController::Update()
     if (StateHeadServo != 0) {
         direction = -1;
         lcd->DirectionLeft();
+        counter->SetDirection(direction);
     }
     else {
         direction = 1;
         lcd->DirectionRight();
+        counter->SetDirection(direction);
     }
 
 /*
@@ -1173,24 +1322,26 @@ void TTapeController::Update()
     if (FastWinding != fwNone) {
    
         if (StateTapeReader || StateReelMotor) {
+
             // in case of rewind and tape end just put a little bit forward
             // only to avoid that the tape is on the very end and the tape reader
             // cannot shine through because of a splice
+
             bool NeedToStart = (FastWinding == fwRewind && StateReelMotor && !StateTapeReader) || RewindOneSide;
         
+            if (FastWinding == fwRewind) counter->Reset();
                        
             #ifdef DEBUG
-                Serial.println("Cass reached its end");
-                if (StateReelMotor) Serial.println("detected by StateReelMotor");
+                Serial.println("> Cass reached its end");
+                if (StateReelMotor) Serial.println("> detected by StateReelMotor");
+                else Serial.println("> detected by StateTapeReader");
+                if (FastWinding == fwRewind) Serial.println("> from REWIND");
+                else Serial.println("> from FORWARD");
             #endif     
-            Stop();    
-            delay(100); 
-            GetState();
-            if (NeedToStart) {
+            Stop();                
+            if (NeedToStart) {            
                 Play();
-                delay(500); 
-                if (!RewindOneSide) Stop();
-                 
+                delay(500);                
             } 
             RewindOneSide = false;
             return;
@@ -1202,7 +1353,7 @@ void TTapeController::Update()
 
     if (Recording && RecordDiskEnd && (RecordMode == recAuto || RecordMode == recSync)) {
         #ifdef DEBUG
-            Serial.println("Disc end, stop recording");
+            Serial.println("> Disc end, stop recording");
         #endif
         Stop();
         return;
@@ -1258,15 +1409,21 @@ void TTapeController::Update()
                     Serial.println(ReverseMode);
                 #endif                
                 if (ReverseMode == rmBothSides) {
-                    Serial.println(">ToggleDirection");  
+                   
                     ToggleDirection();
                     ReverseMode = rmNone;
                     if (CheckIfRecordingIsPossible()) return;
                 }
-                Serial.println(">Stop");  
+              
                 Stop();
                 return;
             }
+            #ifdef DEBUG
+                Serial.print("End of tape detected. Reverse Mode:");
+                Serial.println(ReverseMode);
+            #endif
+
+
             switch(ReverseMode)
             {
                 case rmNone:
@@ -1282,7 +1439,7 @@ void TTapeController::Update()
                     else {
                         WindLeft();
                     }       
-                    delay(2000);
+                    
                     RewindOneSide = true;
                     return;
 
@@ -1293,7 +1450,9 @@ void TTapeController::Update()
                     }
                     ToggleDirection();
                     RepeatSecondSide = true;
-                    delay(2000);
+                    ReverseMode = rmNone;
+                    lcd->ReverseMode(ReverseMode);
+                    
                     return;
 
                 case rmEndless:
@@ -1322,7 +1481,7 @@ void TTapeController::Update()
             delay(500); 
             digitalWrite(SET_CAPSTAN_MOTOR, LOW);
             GetState();
-            if (StateSlideServoUp) lcd->ShowError();
+            if (StateSlideServoUp) lcd->ShowError(1);
         }
         if (StateRecord) MoveRecPlaybackLever();
         lcd->Clear();

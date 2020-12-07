@@ -73,11 +73,13 @@ void TDisplay::ShowDigit9(int value)
         minus = true;
     }
     digit = value;
+    RemoveText();
 }
 
 void TDisplay::ShowDigit(int value)
 {
     digit = value;
+    RemoveText();
 }
 
 void TDisplay::Programm(int value, int m)
@@ -86,6 +88,17 @@ void TDisplay::Programm(int value, int m)
     programmPlace = m;
     programmFlashCount = 10;
     digit = value;
+
+    switch(value) 
+    {
+        case 0: ShowText("C0"); break;
+        case -1: ShowText("P1"); break;
+        case -2: ShowText("P2"); break;
+        case -3: ShowText("P3"); break;
+        default:
+            RemoveText();              
+    }
+
 }
 
 bool TDisplay::WaitingForInput()
@@ -94,9 +107,14 @@ bool TDisplay::WaitingForInput()
 }
 
 
-void TDisplay::ShowError()
+void TDisplay::ShowError(short code)
 {
+    ErrorCode = code;
     blinkError = 4;
+    #ifdef debug
+        Serial.print("Error ");
+        Serial.println(code);
+    #endif
 }
 
 
@@ -110,6 +128,7 @@ void TDisplay::Clear()
     digit = 0;
     minus = false;
     PlayMustBlink = false;
+    RemoveText();
 }
 
 
@@ -131,6 +150,7 @@ void TDisplay::Stop()
     digit = 0;
     minus = false;
     PlayMustBlink = false;
+    RemoveText();
 }
 
 
@@ -221,6 +241,40 @@ void TDisplay::ShowNone() {
 }
 
 
+void TDisplay::RemoveText()
+{
+    HasText = false;   
+}
+
+
+void TDisplay::ShowText(char s[2])
+{
+    text[0] = s[0];
+    text[1] = s[1];
+    HasText = true;
+}
+
+int TDisplay::GetTextSegment(char c)
+{
+    switch (c)
+    {
+        case '0': return segmentCode[0];
+        case '1': return segmentCode[1];
+        case '2': return segmentCode[2];
+        case '3': return segmentCode[3];
+        case '4': return segmentCode[4];
+        case '5': return segmentCode[5];
+        case '6': return segmentCode[6];
+        case '7': return segmentCode[7];
+        case '8': return segmentCode[8];
+        case '9': return segmentCode[9];
+        case 'C': return segmentChars[0];
+        case 'P': return segmentChars[1];
+    }
+    return 0;
+}
+
+
 
 void TDisplay::Update()
 {
@@ -233,12 +287,8 @@ void TDisplay::Update()
     }
     
     if (paused) {
-        if (blink) {
-            display |= _PLAY;
-        }
-        else {
-            display &= _FULL - _PLAY;  
-        }
+        if (blink)  display |= _PLAY;
+        else  display &= _FULL - _PLAY;  
     }
     if (programm) {
         display &= _FULL - _PRG_ALL;  
@@ -259,41 +309,26 @@ void TDisplay::Update()
         }
     }
 
-    display &= _FULL - _ERROR;
-    if (blinkError > 0) {  
-        if (blinkChanged) { 
-            blinkError--; 
-        }   
-        if (blink) {     
-            display |= _ERROR;
-        } 
-    }
+
 
 
 
     long value = display;
 
+    display &= _FULL - _ERROR;
+    
 
     if (init > 0) {
         value &= _FULL - (segmentCode[8] << 8) - segmentCode[8];
 
         int pos = init - 1;
-        if (pos < 11) {
-
-            value += (scroll[pos] << 8);
-            
-        }
+        if (pos < 11) value += (scroll[pos] << 8);  
 
         pos++;
-        if (pos < 11) {
-            value += scroll[pos];
-
-        }
+        if (pos < 11)  value += scroll[pos];
 
         init++;
-        if (init >= 12) {
-            init = 0;
-        }
+        if (init >= 12)  init = 0;
 
         delay(150);
     }
@@ -315,32 +350,44 @@ void TDisplay::Update()
                 value += segmentCode[d2];
             }
 
-            if (minus) {
-                value += _D2_G;
-
-            }
+            if (minus) value += _D2_G;
         }
 
+
+    }
+
+
+    if (blinkError > 0) {  
+        if (blinkChanged) blinkError--; 
+        if (blink) display |= _ERROR;
+        if (ErrorCode > 0) {
+            value &= _FULL - (segmentCode[8] << 8) - segmentCode[8];
+            value += segmentCode[ErrorCode] + (ErrorSegment << 8);
+        }
+    }
+
+    if (HasText) {
+
+        value &= _FULL - (segmentCode[8] << 8) - segmentCode[8];
+        value += GetTextSegment(text[1]) + (GetTextSegment(text[0]) << 8);
 
     }
 
     if (RecordMustBlink) {
-        if (!blink) {
-            display &= _FULL - _REC;  
-        }
-        else {
-            display |= _REC;
-        }
+        if (!blink) value &= _FULL - _REC;  
+        else  value |= _REC;
     }
 
     if (PlayMustBlink) {
-        if (!blink) {
-            display &= _FULL - _PLAY;  
-        }
-        else {
-            display |= _PLAY;
-        }
+        if (!blink)  value &= _FULL - _PLAY;  
+        else  value |= _PLAY;
     }
+    value |= _ARROW;
+
+    
+  
+
+
 
 
 
@@ -351,12 +398,8 @@ void TDisplay::Update()
     long bit = 1;
     for (int x = 1; x <= segmentCount; x++) {
 
-        if ((value & bit) != 0) {
-            digitalWrite(PIN_DISPLAY_DATA, HIGH);   
-        }
-        else {
-            digitalWrite(PIN_DISPLAY_DATA, LOW);
-        }
+        if ((value & bit) != 0)  digitalWrite(PIN_DISPLAY_DATA, HIGH);   
+        else  digitalWrite(PIN_DISPLAY_DATA, LOW);
         bit = bit << 1;        
         pulseClock();  
     }

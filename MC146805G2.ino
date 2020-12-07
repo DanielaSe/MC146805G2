@@ -6,15 +6,25 @@
  * 
  * 
  *      www.70cd555.com         
- *      Daniela Sefzig, Oct.2020
+ *      (c) Daniela Sefzig, Dec.2020
  * 
  * 
  * 
- * Direct replacement for item 7501. Use at your own risk!
+ * Replacement for item 7501. Solves bugs in the original firmware and adds more features.
+ * Use at your own risk!
+ * 
+ * 
  * 
  * Requires the following changings on the uProc panel:
  * 
- * - put a socket instead of the MC146805G2 and insert replacement PCB
+ * - put in a DIP-40 socket instead of the MC146805G2 and insert replacement PCB
+ * - no other changes required
+ * 
+ * 
+ * 
+ * Revisions
+ * - Revision A
+ *   First release
  * 
  * - Revision A 
  *   requires an additional small clock PCB for the CD-Player CPU with 4MHz crystal
@@ -22,11 +32,36 @@
  *   Remove the bridge close to pin 15 when using the replacement clock
  * 
  * - Revision B
- *   In progress...
+ * 
+ * - Revision C
+ *   Never built
+ * 
+ * - Revision D
+ *   Clock for CD CPU was prepared by build-in timer 3. Unfortunately it was not working stable
+ * 
+ * - Revision E
+ *   Digital counter added and SMD 1206 components used
+ * 
+ * - Revision F
+ *   PCB of digital counter slightly Changed
+ *   Replaced timer 3 for the CD CPU clock with a hardware based solution with two D-FlipFlops 
+ *   to reduce the 16MHz to 4MHz  
  * 
  * 
- * The original CPU runs on 8.7MHz - The AT1284P is almost as twice as fast with 16MHz, 
+ * 
+ * Error Codes
+ *   Since the original firmware hangs when failed to deal with the mechanics the new firmware
+ *   contains error routines and show a specific error code as well as do not block the execution
+ *   of the application
+ *      E0  wrong user input
+ *      E1  failed to initialise the tape mechanics
+ *      E2  failed to turn the head during autoreverse
+ *      E3  failed to switch to record mode
+ *      E4  failed to switch servo head
+ * 
+ * The original CPU runs on 5.7MHz - The AT1284P is way faster with 16MHz, 
  * thus the timing has to be different. Only one key press at a time is supported, except the demo keys.
+ * 
  * 
  * 
  * What is different to the orignal - because I liked to improve the handling
@@ -60,45 +95,56 @@
  * 
  * 
  * 
+ * Demo Modes
+ * 01 - Check buttons, same as original firmware
+ * 02 - Set screen position of digital counter
+ * 03 - Reserved
+ * Leave the demo mode by pressing the STOP key
+ * 
+ * 
+ * 
  * Known limitations:
  * - Demo mode only supports to check the keys (eq. demo mode 0)
  * 
- * - In some cases on some cd's the new track irq does not fire. a possible reason might
- *   be the fact that the cpu's are not synchronised
- * 
- * 
- * 
- * 
- * 
+ * - In some cases on some cd's the new track irq does not fire. Maybe depends on Audio CD? 
+ *   Tests with revision E have shown that with the more or less synched clock the signal
+ *   gets fired correctly
  * 
  * 
  **************************************************************************/
 
 
 
-
 #include "TPinLayout.h"
-
 #include "PinChangeInterrupt.h"
 #include "TInputs.h"
 #include "TCDController.h"
 #include "TTapeController.h"
 #include "TDisplay.h"
+#include "TCounter.h"
 #include "defines.h"
-
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 
 
 TDisplay lcd = TDisplay();
 TInputs input = TInputs();
 TCDController cd = TCDController();
-TTapeController tape = TTapeController(&lcd, &input);
+TCounter counter = TCounter();
+TTapeController tape = TTapeController(&lcd, &input, &counter);
+
+
 
 bool blink = false;
 int cycle = 0;
 int OldState = 0;
 long IgnoreCDEvent = 0;
 long IgnoreNewTrackEvent = 0;
+
+
 
 void NewTrack()
 {
@@ -135,12 +181,16 @@ void CDPlayerStartsNewTrack()
 }
 
 
+
 void setup() 
 {
     attachPinChangeInterrupt(9, NewTrack, FALLING);
     attachPinChangeInterrupt(18, CDPlayerStartsNewTrack, RISING);
-    
-    pinMode(PIN_BUILD_IN_LED, OUTPUT);
+    #ifdef USE_BUILD_IN_LED
+        pinMode(PIN_BUILD_IN_LED, OUTPUT);
+    #else
+        pinMode(PIN_BTN_COUNTER, INPUT);
+    #endif
 
     delay(10);
     #ifdef DEBUG
@@ -149,6 +199,8 @@ void setup()
         Serial.println("");
         Serial.println("Ready.");
     #endif
+
+    counter.Init();
 }
 
 
@@ -205,30 +257,51 @@ String KeyToString(int value)
 void loop() 
 {
 
-
+ 
     // Read Keys
     input.read();
 
- 
+    int dm = input.GetDemoMode();
     // demo mode gives several options to check the function of the tape deck
     // this method is currently not equal to the original code
-    if (input.IsDemoMode()) {
-  
-        tape.Reset();
-        
-        if (input.pressedKeys != 0 && input.pressedKeys != input.CD_PLAY) {
-            lcd.ShowNone();
-            lcd.ShowNone();
-            lcd.ShowNone();
-            delay(500);
+    if (dm > 0) {
+     
+        switch (dm) { 
+           case 1: 
+                tape.Reset();          
+                if (input.pressedKeys != 0 && input.pressedKeys != input.CD_PLAY) {
+                    lcd.ShowNone();
+                    lcd.ShowNone();
+                    lcd.ShowNone();
+                    delay(500);
+                }
+                else lcd.ShowAll();
+                tape.Update();
+                delay(100);
+                return;
+
+            case 2:
+                delay(150);
+                lcd.ShowDigit(2);
+                lcd.Update();
+                counter.ConfigScreenPosition(true, input.ReadKeySet1(), input.ReadKeySet2());
+                break;
+            case 3:
+                delay(150);
+                counter.ConfigScreenPosition(false, 0, 0);
+                lcd.ShowDigit(3);
+                lcd.Update();               
+                break;
+            case 4:
+                counter.Reset();
+                lcd.Clear();
+                input.DisableDemoMode();
+                break;
+
         }
-        else { 
-            lcd.ShowAll();
-        }
-        tape.Update();
-        delay(100);
-        return;
+        input.pressedKeys = 0;
     }
+
 
 
 
@@ -244,13 +317,13 @@ void loop()
             
         case input.CD_PAUSE:
             cd.Pause(tape.IsOnAutoRecord()); 
-            if (tape.IsOnSyncRecord()) tape.Pause();
+            if (tape.IsOnAutoRecord() || tape.IsOnSyncRecord()) tape.PauseAfterFourSeconds();    
+
             break;
             
         case input.CD_STOP:
             cd.Stop();
-            if (tape.IsOnAutoRecord()) tape.Pause();    
-            if (tape.IsOnSyncRecord()) tape.Stop();   
+            if (tape.IsOnAutoRecord() || tape.IsOnSyncRecord()) tape.PauseAfterFourSeconds();      
             break;
 
         // Tape Deck
@@ -261,28 +334,29 @@ void loop()
 
         case input.CASS_PAUSE:
             if (tape.IsOnSyncRecord() || tape.IsOnAutoRecord()) break; 
-            if (tape.PlayProgramm || tape.Programming) lcd.ShowError();
+            if (tape.PlayProgramm || tape.Programming) lcd.ShowError(0);
             else tape.Pause();
             break;
 
         case input.CASS_STOP:
+            
             if (tape.Programming) tape.ClearProgramm();
             else if (tape.PlayProgramm) tape.EndProgramm();
             else tape.Stop();
             break;
 
         case input.CASS_REC_MODE:
-            if (tape.PlayProgramm || tape.Programming || tape.IsRecording()) lcd.ShowError();
+            if (tape.PlayProgramm || tape.Programming || tape.IsRecording()) lcd.ShowError(0);
             else tape.ToggleRecordMode();
             break;
             
         case input.CASS_REC:
-            if (tape.PlayProgramm || tape.Programming || tape.IsRecording()) lcd.ShowError();
+            if (tape.PlayProgramm || tape.Programming || tape.IsRecording()) lcd.ShowError(0);
             else tape.StartRecordMode();
             break;
 
         case input.CASS_REVERSE_MODE:
-            if (tape.PlayProgramm || tape.Programming) lcd.ShowError();
+            if (tape.PlayProgramm || tape.Programming) lcd.ShowError(0);
             else tape.ToggleReverseMode();
             break;
 
@@ -292,13 +366,13 @@ void loop()
         case input.CASS_REWIND:
         case input.CASS_PROG:
         case input.CASS_DIRECTION:
-            if (tape.IsOnRecord()) lcd.ShowError();
+            if (tape.IsOnRecord()) lcd.ShowError(0);
             break;
     }
 
 
     // other tape deck keys only if record is not active
-    if (!tape.IsOnRecord() && !tape.PlayProgramm) {
+   if (tape.ReadyForInput()) {
         switch(input.pressedKeys)
         {
             case input.CASS_NEXT:
@@ -320,36 +394,36 @@ void loop()
                 break;
 
             case input.CASS_FORWARD:
-                if (tape.Programming || tape.IsRecording()) lcd.ShowError();
+                if (tape.Programming || tape.IsRecording()) lcd.ShowError(0);
                 else if (tape.GetDirection() < 0 ) tape.WindLeft(); 
                 else tape.WindRight();
                 break;
 
             case input.CASS_REWIND:
-                if (tape.Programming || tape.IsRecording()) lcd.ShowError();
+                if (tape.Programming || tape.IsRecording()) lcd.ShowError(0);
                 else if (tape.GetDirection() > 0 ) tape.WindLeft(); 
                 else tape.WindRight();
                 break;
 
             case input.CASS_PROG:
-                if (tape.IsRecording()) lcd.ShowError();
+                if (tape.IsRecording()) lcd.ShowError(0);
                 else tape.ProgrammKeyPressed(); 
                 break;
 
             case input.CASS_DIRECTION:
-                if (tape.Programming || tape.IsRecording()) lcd.ShowError();
+                if (tape.Programming || tape.IsRecording()) lcd.ShowError(0);
                 else tape.ToggleDirection();
                 break;
 
         }
     }
-
+    else lcd.ShowError(0);
 
 
 
     if (tape.AutoRestart && !tape.SearchTrack && input.pressedKeys != input.CASS_FORWARD && input.pressedKeys != input.CASS_REWIND) {
         #ifdef DEBUG
-            Serial.println("Autorestart");
+            Serial.println(">Autorestart");
         #endif
         tape.Play();
     }
@@ -357,26 +431,32 @@ void loop()
 
     // for easier debugging we can use the internal led to show states
     #ifdef DEBUG
-     /*   if (digitalRead(24) == HIGH) {
+    /*    if (digitalRead(_PD3) == HIGH) {
             digitalWrite(PIN_BUILD_IN_LED, HIGH);
-            delay(1000);
+            delay(250);
         }
         else {
             digitalWrite(PIN_BUILD_IN_LED, LOW);
-        }*/
+         //   delay(1000);
+        }//*/
     #endif   
 
     input.pressedKeys = 0;
     tape.Update();
     cd.Update();
     tape.Update();
+    
 
     cycle++;
     if (cycle > 1) {
         cycle = 0;
 
+  //      if (tape.GetTapeReader()) digitalWrite(PIN_BUILD_IN_LED, HIGH);
+  //      else digitalWrite(PIN_BUILD_IN_LED, LOW);
+
 
         #ifdef DEBUG
+           
             if (input.pressedKeys != 0) {
                 Serial.println(KeyToString(input.pressedKeys));
             }
@@ -393,22 +473,12 @@ void loop()
         #endif   
 
         
-        
-
         lcd.Update();
+        
+        
     }
+    counter.Update();
   
-
-    
-    delay(20);
-
-    if (tape.AutoRestart) {
-        // a wee delay if user only hit forward/rewind during playback
-        // otherwise white lever of mechanics is going crazy
-        delay(200);
-    }
-
- 
 
 
 }

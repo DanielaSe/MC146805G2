@@ -76,6 +76,7 @@
 
 
     const int PIN_BUILD_IN_LED = _PB0; 
+    const int PIN_BTN_COUNTER = _PB0;
   
     // PIN Assignment for Arduino
 
@@ -108,8 +109,8 @@
 //    const int PIN_PC3 = ;     // GND - unused
 
     const int PIN_PC4 = _PC2;    // Pause CD (w. Play on cass.)
-    const int PIN_PC5 = _PC1;    // Read Keys 1 (Keys/cass. status)
-    const int PIN_PC6 = _PC0;    // Read Keys 2 (Keys/cass. status)
+    const int PIN_PC5 = _PB6;// _PC1;    // Read Keys 1 (Keys/cass. status)
+    const int PIN_PC6 = _PB5;// _PC0;    // Read Keys 2 (Keys/cass. status)
     const int PIN_PC7 = _PD7;    // Read Keys 3 (Keys/cass. status)
 
     const int PIN_PD0 = _PA7;    // Key Group 1

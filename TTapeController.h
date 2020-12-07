@@ -7,6 +7,7 @@
 #include "TDisplay.h"
 #include "TInputs.h"
 #include "TPinLayout.h"
+#include "TCounter.h"
 
 
 
@@ -20,7 +21,7 @@ class TTapeController
 
     public:
 
-        TTapeController(TDisplay *_display, TInputs *_inputs);
+        TTapeController(TDisplay *_display, TInputs *_inputs, TCounter *_counter);
         
         bool IsOnRecord();
         bool IsOnSyncRecord();
@@ -34,6 +35,7 @@ class TTapeController
         void Play();
         void Stop();
         void Pause();
+        void StopKeyPressed();
         
         void WindLeft();
         void WindRight();
@@ -60,8 +62,12 @@ class TTapeController
         void StateToString(); 
         void NewAutoRecordTrackStarted();
         void GetState();
-        
+        void PauseAfterFourSeconds();
+        bool ReadyForInput();
 
+        bool GetTapeReader();
+
+        
         bool PlayProgramm = false;
         bool Programming = false;
         bool AutoRestart = false;
@@ -87,6 +93,7 @@ class TTapeController
 
         TDisplay *lcd;
         TInputs *inputs;
+        TCounter *counter;
 
         int CurrentState = 0;
         int TrackNumber = 1;
@@ -98,6 +105,7 @@ class TTapeController
         int Programm[41];
         int ProgrammCounter = 0;
         bool Recording;
+        bool DesiredCapstanState = false;
         
 
         bool TrackFound = false;
@@ -117,6 +125,10 @@ class TTapeController
         bool RecordEnabledForSideA = true;
         bool RecordEnabledForSideB = true;
         bool PrepareForProgramm = false;
+
+        long GotoPosition = -1;
+        int GotoPositionDir = 0;
+        bool GotoPositionAutoPlay = false;
         
         // 1 second delay for capstan to switch off
         const int CAPSTAN_OFF_DELAY = 1000; 
@@ -124,6 +136,7 @@ class TTapeController
         // Give the motor some time to reach its final speed before enabling audio
         const int SWITCHON_MUSIC_DELAY = 150; 
 
+        long PauseTimer = 0;
         long SwitchOffCapstan = 0;
         long SwitchOnMusic = 0;
         long IgnoreStateTapeReader = 0;
@@ -165,7 +178,7 @@ class TTapeController
         bool HasProgramm();
         int ProgrammedTracks();
         bool AnyProgrammedTracksAfter(int x);
-
+        void MoveToPosition(bool autoplay, int pos);
 
         
 

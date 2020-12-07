@@ -28,9 +28,11 @@ class TDisplay
         void Programm(int value, int m);
         void ShowDigit(int value);
         void ShowDigit9(int value);
+        void ShowText(char s[2]);
+        void RemoveText();
         void ShowAll();
         void ShowNone();
-        void ShowError();
+        void ShowError(short code);
         void ShowMinus(bool value);
         void BlinkPlay(bool value);
         void BlinkRecord(bool value);
@@ -39,6 +41,7 @@ class TDisplay
     private:
 
         void pulseClock();
+        int GetTextSegment(char c);
         int segmentCount = 36;
         long display = 0;
         long digit = 0;
@@ -53,8 +56,11 @@ class TDisplay
         bool PlayMustBlink = false;
         bool RecordMustBlink = false;
         bool minus = false;
+        short ErrorCode = 0;
 
         int init = 0;
+        char text[2];
+        bool HasText = false;
 
         const int BLINK_DELAY = 3;
 
@@ -66,7 +72,9 @@ class TDisplay
         //                                              7           0           c           d           5           5           5
         const int scroll[11] = { 0b00000000, 0b00000000, 0b00000111, 0b00111111, 0b01011000, 0b01011110, 0b01101101, 0b01101101, 0b01101101, 0b00000000, 0b00000000 };
 
-
+        //                              C           P
+        const int segmentChars[2] = {0b10111001, 0b11110011};
+        const int ErrorSegment = {0b11111001};
         const int segmentCode[10] = { 0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110, 
                              0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01101111 };
         const long _FULL = 0xffffffff;  
