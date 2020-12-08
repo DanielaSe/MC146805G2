@@ -208,6 +208,7 @@ void TCounter::Stop()
     #endif
     State = csStopped;
     StorePosition(Position);
+    Modified = true;
 }
 
 
@@ -240,7 +241,7 @@ void TCounter::FastWind(int winddir)
 
     WindDirection = winddir;
     State = csFastWinding;
-
+    Modified = true;
     #ifdef DEBUG
         Serial.print(" WindDir: ");
         Serial.print(winddir);
@@ -369,6 +370,11 @@ void TCounter::Update()
             oled.display();  
             return;
         
+        case smScreenSaver:
+            oled.clearDisplay();
+            oled.display();  
+            break;
+        
     }
 
     if (lastms == 0) { lastms = ms; }
@@ -379,6 +385,7 @@ void TCounter::Update()
     {
         case csPlaying:
             Position += elapsed;
+            Modified = true;
             break;
 
         case csFastWinding:
@@ -400,7 +407,8 @@ void TCounter::Update()
             else TapePosMM -= mmpfr * mmet;
 
             // new position
-            Position = (TapePosMM / 47.6) * 1000.0;          
+            Position = (TapePosMM / 47.6) * 1000.0;    
+            Modified = true;      
             break;
     }
     overflow = false;
@@ -489,25 +497,32 @@ void TCounter::Update()
     }
 
 
-    if (!Modified && ScreenSaver > 0 && ms > ScreenSaver) {
-        #ifdef DEBUG
-            Serial.println("+Screensaver active");
-            Serial.println(ScreenSaver);
-            Serial.println(ms);
-        #endif
-        oled.clearDisplay();
-        oled.display();   
-        ScreenSaver = 0;
+
+
+    // Check if ScreenSaver should be activated
+    if (!Modified) {
+        if (ScreenMode != smScreenSaver) {
+            ScreenSaver -= (ms - lastms);
+            if (ScreenSaver < 0) {
+                #ifdef DEBUG
+                    Serial.println("+Screensaver active");
+                    Serial.println(ScreenSaver);
+                    Serial.println(ms);
+                #endif
+                ScreenMode = smScreenSaver;  
+            }
+        }
         return;
     }
 
 
-    if (!Modified) return;
+    // update display
+    
 
-    Modified = false;
+    if (ScreenMode == smScreenSaver) ScreenMode = smDefault;
 
-    ScreenSaver = ms + SCREEN_SAVER_DELAY;
-  
+    Modified = false;    
+    ScreenSaver = SCREEN_SAVER_DELAY;
     int min = trunc(Seconds / 60);
     int sec = Seconds - (min * 60);
 

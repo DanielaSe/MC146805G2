@@ -10,7 +10,7 @@
 
 
 enum TTapeLength {tlC30, tlC60, tlC90};
-enum TScreenMode {smDefault, smSplashScreen, smConfigPosition, smDateTime, smDateTimeConfig};
+enum TScreenMode {smDefault, smSplashScreen, smConfigPosition, smDateTime, smDateTimeConfig, smScreenSaver};
 
 class TCounter
 {
@@ -47,7 +47,7 @@ class TCounter
 
         byte SCREEN_OFFSET_X = 12;
         byte SCREEN_OFFSET_Y = 39;
-        const long SCREEN_SAVER_DELAY = 1000 * 60 * 5; // 5 minutes
+        const long SCREEN_SAVER_DELAY = 120000L; // 2 minutes
 
         float CassetteLengthInSeconds = 2700.0;
         
@@ -71,8 +71,8 @@ class TCounter
         TCountState State = csStopped;
         TTapeLength TapeLength = tlC90;
 
-        long ms = 0;
-        long Position;
+        unsigned long ms = 0;
+        unsigned long Position;
         String time;
 
         int Memory[3];
