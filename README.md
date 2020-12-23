@@ -8,6 +8,7 @@ Programming of the cassette is slightly different to the original since the inte
 
 The project is still in progress and far away from beeing a pretty code due to time issues. Use at your own risk.
 
+Requires additional Hardware -> https://70cd555.com/modifications/tape-deck-cpu/hardware/
 
 
 Daniela Sefzig 2020
