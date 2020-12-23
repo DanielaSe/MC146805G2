@@ -94,6 +94,41 @@ void TCounter::StorePosition(unsigned long s)
 }
 
 
+/************************************************************************
+ * StoreReverseMode
+ * 
+ * *********************************************************************/
+void TCounter::StoreReverseMode(int value)
+{
+    #ifdef DEBUG
+        Serial.println(":StoreReverseMode");
+    #endif
+    #ifdef COUNTER
+        BufferByte buffer;
+        buffer.value = value & 0xff; 
+        rtc.writeRAM(15, buffer.bytes, 1);
+    #endif
+}
+
+/************************************************************************
+ * RestoreReverseMode
+ * 
+ * *********************************************************************/
+int TCounter::RestoreReverseMode()
+{
+    #ifdef DEBUG
+        Serial.println(":RestoreReverseMode");
+    #endif
+    #ifdef COUNTER
+        BufferByte a;
+        rtc.readRAM(15, a.bytes, 1);
+        return a.value;
+    #else  
+      return 0;
+    #endif
+}
+
+
 
 /************************************************************************
  * ConfigScreenPosition
@@ -381,6 +416,7 @@ void TCounter::Update()
     long elapsed = ms - lastms;
     int PreviousSeconds = Seconds;
 
+
     switch (State) 
     {
         case csPlaying:
@@ -418,15 +454,20 @@ void TCounter::Update()
         Position += MAX_COUNTER_VALUE;
         overflow = true;
         #ifdef DEBUG
-            Serial.println("+Counter.Overflow detected");
+            Serial.println("+Counter.Overflow detected < 0");
         #endif
     }
     if (Position > MAX_COUNTER_VALUE) {
-        Position -= MAX_COUNTER_VALUE;
-        overflow = true;
+
         #ifdef DEBUG
-            Serial.println("+Counter.Overflow detected");
+            Serial.print("+Counter.Overflow detected ");
+            Serial.print(Position);
+            Serial.print(" > ");
+            Serial.println(MAX_COUNTER_VALUE);
         #endif
+        while (Position > MAX_COUNTER_VALUE) Position -= MAX_COUNTER_VALUE;
+        overflow = true;
+        Modified = true;    
     }
 
     Seconds = abs(round(Position / 1000));

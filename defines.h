@@ -26,7 +26,7 @@
  * either use the build in led or the button for the counter.
  * both is not possible
  * *********************************************************************/
- //#define USE_BUILD_IN_LED;
+ #define USE_BUILD_IN_LED;
 
 
 

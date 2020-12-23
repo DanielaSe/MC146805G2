@@ -964,6 +964,7 @@ void TTapeController::ToggleReverseMode()
             break;
     }
     lcd->ReverseMode((int)ReverseMode);
+    counter->StoreReverseMode((int)ReverseMode);
 }
 
 
@@ -1483,8 +1484,10 @@ void TTapeController::Update()
             GetState();
             if (StateSlideServoUp) lcd->ShowError(1);
         }
+        ReverseMode = (TReverseMode)counter->RestoreReverseMode();
         if (StateRecord) MoveRecPlaybackLever();
         lcd->Clear();
+        lcd->ReverseMode((int)ReverseMode);
         return;
     }
 

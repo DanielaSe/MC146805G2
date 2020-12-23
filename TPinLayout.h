@@ -75,7 +75,7 @@
     const int _PD7 = 15;
 
 
-    const int PIN_BUILD_IN_LED = _PB0; 
+    const int PIN_BUILD_IN_LED = _PB7; 
     const int PIN_BTN_COUNTER = _PB0;
   
     // PIN Assignment for Arduino

@@ -79,6 +79,8 @@
  *   always disables the record mode.
  *   Original behaviour: Record button only activates record mode
  * 
+ * 
+ * 
  * New features:
  * - When pressing record and the tape reader recognises the tape is
  *   at the very beginning it moves forward until the tape really starts.
@@ -93,6 +95,24 @@
  * - Auto-Record mode shows the number of recorded tracks. Always wondered why Philips was not using
  *   the two digits and always displays 00?
  * 
+ * 
+ * 
+ * Using the digital counter adds the following features:
+ * - OLED Display with minutes and seconds
+ * - Automatic reset to 0:00 when rewind to the beginning of the tape
+ * - Select the tape length C30, C60 or C90
+ * - Jump to position 0
+ * - Store up to three positions
+ * - Select with previous key to select the position to jump to and click
+ *      a) the program key to go to the position and stop or
+ *      b) the play key to go to the position and play
+ * - Save the selected repeat mode
+ * - Save the last position
+ * - Display side A or B
+ * - Philips logo from the eighties on startup
+ * - Screensaver, swith off the display after 5 minutes of no action
+ * - Set the screen coordinates with help of the demo mode 02
+ * - Optional clock (not implemented yet)
  * 
  * 
  * Demo Modes
@@ -188,6 +208,7 @@ void setup()
     attachPinChangeInterrupt(18, CDPlayerStartsNewTrack, RISING);
     #ifdef USE_BUILD_IN_LED
         pinMode(PIN_BUILD_IN_LED, OUTPUT);
+        digitalWrite(PIN_BUILD_IN_LED, HIGH);
     #else
         pinMode(PIN_BTN_COUNTER, INPUT);
     #endif
@@ -201,6 +222,7 @@ void setup()
     #endif
 
     counter.Init();
+    
 }
 
 
@@ -431,14 +453,15 @@ void loop()
 
     // for easier debugging we can use the internal led to show states
     #ifdef DEBUG
-    /*    if (digitalRead(_PD3) == HIGH) {
+    
+   /*    if (digitalRead(_PD3) == HIGH) {
             digitalWrite(PIN_BUILD_IN_LED, HIGH);
             delay(250);
         }
         else {
             digitalWrite(PIN_BUILD_IN_LED, LOW);
          //   delay(1000);
-        }//*/
+        }*/
     #endif   
 
     input.pressedKeys = 0;

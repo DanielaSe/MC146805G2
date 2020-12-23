@@ -36,10 +36,15 @@ class TCounter
 
         void ConfigScreenPosition(bool active, int deltaX, int deltaY);
 
+        void StoreReverseMode(int value);
+        int RestoreReverseMode();
+
     private:
         void StorePosition(unsigned long s);
         void RestorePosition();
         byte InRange(byte value);
+
+
         
         enum TCountState {csStopped, csPlaying, csFastWinding};
         
@@ -52,7 +57,7 @@ class TCounter
         float CassetteLengthInSeconds = 2700.0;
         
         const float FF_MULTIPLIER = 8.5;
-        const long MAX_COUNTER_VALUE = 3599999;
+        const long MAX_COUNTER_VALUE = 3599999L;
         const long BTN_RESET_TIME = 500;
         const int MAX_MEMORY = 3;
         int count = 1;
@@ -72,7 +77,7 @@ class TCounter
         TTapeLength TapeLength = tlC90;
 
         unsigned long ms = 0;
-        unsigned long Position;
+        long Position;
         String time;
 
         int Memory[3];
