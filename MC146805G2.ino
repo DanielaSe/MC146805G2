@@ -75,9 +75,11 @@
  *   be programmed.
  *   Original behaviour: 20 tracks only one side
  * 
- *  - The button "record" can be used to enable or disable record mode. In addition, the Stop key 
+ * - The button "record" can be used to enable or disable record mode. In addition, the Stop key 
  *   always disables the record mode.
  *   Original behaviour: Record button only activates record mode
+ * 
+ * - Pause just stops the motor
  * 
  * 
  * 
@@ -90,10 +92,11 @@
  * - In Record-Mode the reverse key only allows A->B and does not show other reverse modes
  * 
  * - In case of rewind, when the tape moves to the very end it moves back forward a little bit
- *   to avoid being on a splice and the tape reader does not recognise the transparent tape
+ *   to avoid being on a splice and the tape reader does not recogn‚ise the transparent tape
  * 
  * - Auto-Record mode shows the number of recorded tracks. Always wondered why Philips was not using
  *   the two digits and always displays 00?
+ * 
  * 
  * 
  * 
@@ -208,7 +211,7 @@ void setup()
     attachPinChangeInterrupt(18, CDPlayerStartsNewTrack, RISING);
     #ifdef USE_BUILD_IN_LED
         pinMode(PIN_BUILD_IN_LED, OUTPUT);
-        digitalWrite(PIN_BUILD_IN_LED, HIGH);
+  //      digitalWrite(PIN_BUILD_IN_LED, HIGH);
     #else
         pinMode(PIN_BTN_COUNTER, INPUT);
     #endif
@@ -439,7 +442,14 @@ void loop()
 
         }
     }
-    else lcd.ShowError(0);
+    else {
+        // Todo: figure out which keys should show an error
+        switch(input.pressedKeys) {
+      //      case input.CASS_PREV:
+      //          lcd.ShowError(0);
+        }
+    }
+      
 
 
 

@@ -147,9 +147,9 @@ void TCounter::ConfigScreenPosition(bool active, int deltaX, int deltaY)
     if (SCREEN_OFFSET_Y + deltaY >= 0 && SCREEN_OFFSET_Y + deltaY < 100) { SCREEN_OFFSET_Y += deltaY; }
     BufferByte a;
     a.value = SCREEN_OFFSET_X;
-    Serial.println(rtc.writeRAM(13, a.bytes, 1));
+    rtc.writeRAM(13, a.bytes, 1);
     a.value = SCREEN_OFFSET_Y;
-    Serial.println(rtc.writeRAM(14, a.bytes, 1));
+    rtc.writeRAM(14, a.bytes, 1);
 }
 
 
@@ -171,20 +171,21 @@ void TCounter::Init()
         ScreenMode = smSplashScreen;
         
         if (!rtc.isRunning()) rtc.control(DS1307_CLOCK_HALT, DS1307_OFF);
-
-        Serial.println("read screen coordinates");
- 
+        #ifdef DEBUG
+            Serial.println("read screen coordinates");
+        #endif
         BufferByte a;
         rtc.readRAM(13, a.bytes, 1);
         SCREEN_OFFSET_X = InRange(a.value);
         rtc.readRAM(14, a.bytes, 1);
         SCREEN_OFFSET_Y = InRange(a.value);
 
-        Serial.print("X:");
-        Serial.print(SCREEN_OFFSET_X);
-        Serial.print(" Y:");
-        Serial.println(SCREEN_OFFSET_Y);
- 
+        #ifdef DEBUG
+            Serial.print("X:");
+            Serial.print(SCREEN_OFFSET_X);
+            Serial.print(" Y:");
+            Serial.println(SCREEN_OFFSET_Y);
+        #endif
 
         oled.clearDisplay();
         oled.drawBitmap(SCREEN_OFFSET_X - 2, SCREEN_OFFSET_Y + 10, ImageLogo, 34, 44, 1);
@@ -475,9 +476,9 @@ void TCounter::Update()
     // Counter Reset/Memory button
     bool b = digitalRead(PIN_BTN_COUNTER) == LOW;
 
-#ifdef DEBUG
-    if (b) Serial.println("+Counter Button Pressed");
-#endif;
+    #ifdef DEBUG
+        if (b) Serial.println("+Counter Button Pressed");
+    #endif;
 
     if (btnPressed && !b && btnPressTime > 0) {
 

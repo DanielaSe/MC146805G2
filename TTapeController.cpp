@@ -125,6 +125,9 @@ void TTapeController::Play()
                 MoveToPosition(true, counter->GetMemoryPosition(TrackNumber * -1));
                 return;
         }
+        #ifdef DEBUG
+            Serial.println("+user input error");
+        #endif    
         lcd->ShowError(0);
         return;
     }
@@ -660,6 +663,9 @@ void TTapeController::ProgrammKeyPressed()
         lcd->ShowDigit(GetNextProgrammedTrack());
     }
     else {
+        #ifdef DEBUG
+            Serial.println("+ProgrammKeyPressed error");
+        #endif    
         lcd->ShowError(0);
     }
 
@@ -907,8 +913,12 @@ void TTapeController::ToggleDirection()
     digitalWrite(SET_WIND_LEFT, LOW);  
     digitalWrite(SET_WIND_RIGHT, LOW);  
     
-    if (tries >= 1000) lcd->ShowError(2);
-
+    if (tries >= 1000) {
+        #ifdef DEBUG
+            Serial.println("+ToggleDirection error");
+        #endif       
+        lcd->ShowError(2);
+    }
     // some mechanism failed from time to time without giving it a little rest
     delay(50);
     direction *= -1;
@@ -1057,6 +1067,9 @@ void TTapeController::MoveRecPlaybackLever()
         GetState();
         Error--;
         if (Error <= 0) {
+            #ifdef DEBUG
+                Serial.println("+MoveRecPlaybackLever error");
+            #endif
             lcd->ShowError(3);
             break;
         }
@@ -1198,6 +1211,9 @@ void TTapeController::Update()
 
         if (DesiredCapstanState != StateSlideServoUp) {
 
+            #ifdef DEBUG
+                Serial.println("+DesiredCapstanState != StateSlideServoUp");
+            #endif
             lcd->ShowError(4);
         }
 
@@ -1482,7 +1498,12 @@ void TTapeController::Update()
             delay(500); 
             digitalWrite(SET_CAPSTAN_MOTOR, LOW);
             GetState();
-            if (StateSlideServoUp) lcd->ShowError(1);
+            if (StateSlideServoUp) {
+            #ifdef DEBUG
+                Serial.println("+init StateSlideServoUp");
+            #endif
+            lcd->ShowError(1);
+            } 
         }
         ReverseMode = (TReverseMode)counter->RestoreReverseMode();
         if (StateRecord) MoveRecPlaybackLever();
