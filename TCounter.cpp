@@ -129,6 +129,34 @@ int TCounter::RestoreReverseMode()
 }
 
 
+int TCounter::GetWhiteLeverReleaseTime()
+{
+    return WhiteLeverReleaseTime;
+}
+
+/************************************************************************
+ * SetWhiteLeverReleaseTime
+ * 
+ * 
+ * *********************************************************************/
+void TCounter::SetWhiteLeverReleaseTime(bool active, int deltaX)
+{
+    if (!active) {
+        ScreenMode = smDefault;
+        return;
+    }
+    ScreenMode = smWhiteLever;
+    if (deltaX == 0) return;
+    if (WhiteLeverReleaseTime + deltaX >= 0 && WhiteLeverReleaseTime + deltaX < 100) { WhiteLeverReleaseTime += deltaX; }
+
+    Serial.print("WhiteLeverReleaseTime: ");
+    Serial.println(WhiteLeverReleaseTime);
+
+    BufferByte a;
+    a.value = WhiteLeverReleaseTime;
+    rtc.writeRAM(16, a.bytes, 1);
+}
+
 
 /************************************************************************
  * ConfigScreenPosition
@@ -179,6 +207,8 @@ void TCounter::Init()
         SCREEN_OFFSET_X = InRange(a.value);
         rtc.readRAM(14, a.bytes, 1);
         SCREEN_OFFSET_Y = InRange(a.value);
+        rtc.readRAM(16, a.bytes, 1);
+        WhiteLeverReleaseTime = InRange(a.value);
 
         #ifdef DEBUG
             Serial.print("X:");
@@ -410,6 +440,21 @@ void TCounter::Update()
             oled.clearDisplay();
             oled.display();  
             break;
+
+        case smWhiteLever:
+            oled.clearDisplay();
+            oled.setFont();
+            oled.setTextSize(1); 
+            oled.setTextColor(SSD1306_WHITE);
+            
+            oled.setCursor(SCREEN_OFFSET_X + 2, SCREEN_OFFSET_Y + 0);
+            oled.println(F("Rel.Time"));
+            oled.setCursor(SCREEN_OFFSET_X + 6, SCREEN_OFFSET_Y + 20);
+            char s[5];
+            sprintf(s, "%d", WhiteLeverReleaseTime * 10);
+            oled.println(s);
+            oled.display();  
+            return;
         
     }
 
@@ -548,8 +593,6 @@ void TCounter::Update()
             if (ScreenSaver < 0) {
                 #ifdef DEBUG
                     Serial.println("+Screensaver active");
-                    Serial.println(ScreenSaver);
-                    Serial.println(ms);
                 #endif
                 ScreenMode = smScreenSaver;  
             }

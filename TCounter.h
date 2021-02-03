@@ -10,7 +10,7 @@
 
 
 enum TTapeLength {tlC30, tlC60, tlC90};
-enum TScreenMode {smDefault, smSplashScreen, smConfigPosition, smDateTime, smDateTimeConfig, smScreenSaver};
+enum TScreenMode {smDefault, smSplashScreen, smConfigPosition, smDateTime, smDateTimeConfig, smScreenSaver, smWhiteLever};
 
 class TCounter
 {
@@ -35,16 +35,19 @@ class TCounter
         void ToggleTapeLength();
 
         void ConfigScreenPosition(bool active, int deltaX, int deltaY);
+        void SetWhiteLeverReleaseTime(bool active, int deltaX);
 
         void StoreReverseMode(int value);
         int RestoreReverseMode();
+
+        int GetWhiteLeverReleaseTime();
 
     private:
         void StorePosition(unsigned long s);
         void RestorePosition();
         byte InRange(byte value);
 
-
+        int WhiteLeverReleaseTime = 0;
         
         enum TCountState {csStopped, csPlaying, csFastWinding};
         

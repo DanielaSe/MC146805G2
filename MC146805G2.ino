@@ -59,6 +59,7 @@
  *      E3  failed to switch to record mode
  *      E4  failed to switch servo head
  * 
+ * 
  * The original CPU runs on 5.7MHz - The AT1284P is way faster with 16MHz, 
  * thus the timing has to be different. Only one key press at a time is supported, except the demo keys.
  * 
@@ -121,7 +122,7 @@
  * Demo Modes
  * 01 - Check buttons, same as original firmware
  * 02 - Set screen position of digital counter
- * 03 - Reserved
+ * 03 - White Lever Release Time (x*10ms)
  * Leave the demo mode by pressing the STOP key
  * 
  * 
@@ -196,6 +197,9 @@ void CDPlayerStartsNewTrack()
 
     if (tape.IsOnAutoRecord() && tape.IsRecording()) 
     {
+        #ifdef DEBUG
+            Serial.println("+Pause 4 seconds");
+        #endif
         cd.Pause(true);
         tape.NewAutoRecordTrackStarted();
     }
@@ -209,6 +213,7 @@ void setup()
 {
     attachPinChangeInterrupt(9, NewTrack, FALLING);
     attachPinChangeInterrupt(18, CDPlayerStartsNewTrack, RISING);
+
     #ifdef USE_BUILD_IN_LED
         pinMode(PIN_BUILD_IN_LED, OUTPUT);
   //      digitalWrite(PIN_BUILD_IN_LED, HIGH);
@@ -217,15 +222,23 @@ void setup()
     #endif
 
     delay(10);
+
+    counter.Init();
+    tape.WhiteLeverReleaseTime = counter.GetWhiteLeverReleaseTime();
+
     #ifdef DEBUG
         Serial.begin(9600); 
         Serial.println("");
         Serial.println("");
         Serial.println("Ready.");
+        Serial.print("WhiteLeverReleaseTime: ");
+        Serial.println(tape.WhiteLeverReleaseTime);
     #endif
 
-    counter.Init();
+
     
+
+
 }
 
 
@@ -314,6 +327,8 @@ void loop()
             case 3:
                 delay(150);
                 counter.ConfigScreenPosition(false, 0, 0);
+                counter.SetWhiteLeverReleaseTime(true, input.ReadKeySet2());
+                tape.WhiteLeverReleaseTime = counter.GetWhiteLeverReleaseTime();
                 lcd.ShowDigit(3);
                 lcd.Update();               
                 break;
@@ -419,12 +434,14 @@ void loop()
                 break;
 
             case input.CASS_FORWARD:
+                if (tape.IsFastWinding() == fwForward) return;
                 if (tape.Programming || tape.IsRecording()) lcd.ShowError(0);
                 else if (tape.GetDirection() < 0 ) tape.WindLeft(); 
                 else tape.WindRight();
                 break;
 
             case input.CASS_REWIND:
+                if (tape.IsFastWinding() == fwRewind) return;
                 if (tape.Programming || tape.IsRecording()) lcd.ShowError(0);
                 else if (tape.GetDirection() > 0 ) tape.WindLeft(); 
                 else tape.WindRight();

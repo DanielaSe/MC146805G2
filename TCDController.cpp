@@ -56,6 +56,9 @@ void TCDController::Update()
     
     long now = millis();
     if (DoAutoStart > 0 && DoAutoStart < now) {
+        #ifdef DEBUG
+            Serial.println("+ DoAutoStart restart...");
+        #endif
         DoAutoStart = 0;
         Play();
     }
@@ -101,9 +104,8 @@ void TCDController::Pause(bool AutoStart)
     #endif
     paused = true;    
     digitalWrite(PIN_PA5, LOW);
-    ms = millis();
     if (AutoStart) {
-        DoAutoStart = ms + 4000;
+        DoAutoStart = millis() + 4000;
         #ifdef DEBUG
             Serial.println("Auto Paused for 4 seconds");
         #endif

@@ -30,7 +30,9 @@ class TTapeController
         bool IsRecording();
         bool IsPaused();
         int GetDirection();
-        int GetCurrentState();        
+        int GetCurrentState();      
+
+        TFastWind IsFastWinding();  
         
         void Play();
         void Stop();
@@ -73,8 +75,10 @@ class TTapeController
         bool AutoRestart = false;
         bool SearchTrack = false;
         
+        int WhiteLeverReleaseTime = 0;
 
     private:
+
 
         const int MAX_PROGRAMM_LENGTH = 40;
         const int DELAY_SLIDE_SERVO = 80;
@@ -130,8 +134,8 @@ class TTapeController
         int GotoPositionDir = 0;
         bool GotoPositionAutoPlay = false;
         
-        // 1 second delay for capstan to switch off
-        const int CAPSTAN_OFF_DELAY = 1000; 
+        // 5 seconds delay for capstan to switch off
+        const int CAPSTAN_OFF_DELAY = 5000; 
 
         // Give the motor some time to reach its final speed before enabling audio
         const int SWITCHON_MUSIC_DELAY = 150; 

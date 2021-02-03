@@ -89,6 +89,9 @@ void TTapeController::Reset()
 }
 void TTapeController::StartCapstan() 
 {
+    #ifdef DEBUG
+      Serial.println(":StartCapstan");
+    #endif
     SwitchOffCapstan = 0;
     digitalWrite(SET_CAPSTAN_MOTOR, HIGH);    
 }
@@ -96,6 +99,11 @@ void TTapeController::StopCapstan()
 {
     SwitchOffCapstan = ms + CAPSTAN_OFF_DELAY;
 }
+
+TFastWind TTapeController::IsFastWinding(){
+    return FastWinding;
+}
+
 
 
 /************************************************************************
@@ -181,18 +189,32 @@ void TTapeController::Play()
         Serial.println(StartedWithEmptyTape);
     #endif
 
+      
     digitalWrite(SET_FAST_WIND_RELAY, HIGH);
     digitalWrite(SET_FAST_WIND, HIGH); 
     digitalWrite(SET_WIND_RIGHT, LOW);
     digitalWrite(SET_WIND_LEFT, LOW);
     StartCapstan();
+    GetState();
 
     if (!StateSlideServoUp) {     
         delay(100);
         PushSlideServo();
-        delay(50);
-        
+        delay(50);  
+        GetState();
+        int c = 0;
+        while (!StateSlideServoUp) {
+            delay(50);
+            GetState();
+            c++;
+            if (c > 10) {
+                lcd->ShowError(4);
+                break;
+            } 
+        }
+ 
     }
+
     if (direction < 0) {
         digitalWrite(SET_WIND_RIGHT, LOW);
         digitalWrite(SET_WIND_LEFT, HIGH);
@@ -260,18 +282,20 @@ void TTapeController::Stop()
 
     SetMute(true);
 
- 
-
     digitalWrite(SET_FAST_WIND_RELAY, HIGH);
     digitalWrite(SET_FAST_WIND, HIGH);  
     digitalWrite(SET_WIND_LEFT, LOW);
-    digitalWrite(SET_WIND_RIGHT, LOW);  
+    digitalWrite(SET_WIND_RIGHT, LOW);
     
 
     if (paused) StartCapstan(); 
-    if (StateSlideServoUp) PushSlideServo();   
-    StopCapstan();
+    if (StateSlideServoUp) PushSlideServo();
 
+    if (WhiteLeverReleaseTime > 0 && FastWinding != fwNone){
+        delay(WhiteLeverReleaseTime * 10);
+    }
+    
+    StopCapstan();
     
     lcd->Stop();
     playing = false;
@@ -946,6 +970,8 @@ void TTapeController::PushSlideServo()
     digitalWrite(SET_SLIDE_SERVO, LOW);
     delay(DELAY_SLIDE_SERVO);
     digitalWrite(SET_SLIDE_SERVO, HIGH);
+
+    
 }
 
 
@@ -1468,8 +1494,8 @@ void TTapeController::Update()
                     ToggleDirection();
                     RepeatSecondSide = true;
                     ReverseMode = rmNone;
-                    lcd->ReverseMode(ReverseMode);
-                    
+                    lcd->ReverseMode(ReverseMode);                 
+
                     return;
 
                 case rmEndless:
