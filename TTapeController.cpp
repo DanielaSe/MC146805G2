@@ -169,9 +169,13 @@ void TTapeController::Play()
         return;
     }
     PrepareForProgramm = false;
+
+
+    // if (playing && FastWinding != fwNone) Stop();
     
     if (StateSlideServoUp) {   
         Stop();
+        delay(100);
         GetState();
     }
 
@@ -372,6 +376,7 @@ void TTapeController::WindLeft()
     AutoRestart = playing;
 
     Stop();
+    delay(WAIT_BEFORE_FAST_WIND);
     GetState();
 
     IgnoreStateTapeReader = ms + 4000;
@@ -437,6 +442,7 @@ void TTapeController::WindRight()
     AutoRestart = playing;
     
     Stop();
+    delay(WAIT_BEFORE_FAST_WIND);
     GetState();
 
     IgnoreStateTapeReader = ms + 4000;
@@ -918,9 +924,11 @@ void TTapeController::ToggleDirection()
 
     if (isPlaying) Stop();
   
-
+    
     bool WaitForState = !StateHeadServo;
     StartCapstan(); 
+    
+    delay(WAIT_BEFORE_FAST_WIND);
     digitalWrite(SET_WIND_LEFT, HIGH);  
     digitalWrite(SET_WIND_RIGHT, LOW);  
 
@@ -944,7 +952,7 @@ void TTapeController::ToggleDirection()
         lcd->ShowError(2);
     }
     // some mechanism failed from time to time without giving it a little rest
-    delay(50);
+    delay(WAIT_BEFORE_FAST_WIND); // 50
     direction *= -1;
     if (isPlaying) Play();
     else
@@ -970,7 +978,7 @@ void TTapeController::PushSlideServo()
     digitalWrite(SET_SLIDE_SERVO, LOW);
     delay(DELAY_SLIDE_SERVO);
     digitalWrite(SET_SLIDE_SERVO, HIGH);
-
+    delay(WAIT_FOR_SERVO);
     
 }
 
@@ -1188,6 +1196,22 @@ void TTapeController::GetState()
 
     CurrentState = inputs->GetCassetteState(); 
     StateSlideServoUp = (bool)((CurrentState & inputs->IN_SLIDE_SERVO) != 0);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
     StateRecord = (bool)(CurrentState & inputs->IN_REC);
     StateHeadServo = (bool)(CurrentState & inputs->IN_HEAD_SERVO);
     StatePause = (bool)(CurrentState & inputs->IN_PAUSE_CASS);

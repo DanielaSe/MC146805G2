@@ -1,4 +1,4 @@
-/***************************************************************************
+ /***************************************************************************
  * 
  * Replacement for uP MC146805G2 in Philips 70CD555 
  * Philips Code 4822 157 50967
@@ -295,6 +295,7 @@ String KeyToString(int value)
 void loop() 
 {
 
+
  
     // Read Keys
     input.read();
@@ -480,15 +481,20 @@ void loop()
 
     // for easier debugging we can use the internal led to show states
     #ifdef DEBUG
-    
-   /*    if (digitalRead(_PD3) == HIGH) {
+    /*
+       if (digitalRead(PIN_BUILD_IN_LED) == LOW) {
             digitalWrite(PIN_BUILD_IN_LED, HIGH);
-            delay(250);
+            digitalWrite(PIN_PB2, HIGH);
+            digitalWrite(PIN_PB4, HIGH);
+            delay(2000);
         }
         else {
             digitalWrite(PIN_BUILD_IN_LED, LOW);
-         //   delay(1000);
-        }*/
+            digitalWrite(PIN_PB2, LOW);
+            digitalWrite(PIN_PB4, HIGH);
+            delay(2000);
+        }
+        */
     #endif   
 
     input.pressedKeys = 0;

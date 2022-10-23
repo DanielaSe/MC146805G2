@@ -17,7 +17,7 @@
  * 
  * digital counter is connected and should be used
  * *********************************************************************/
-#define COUNTER;
+//#define COUNTER;
 
 
 

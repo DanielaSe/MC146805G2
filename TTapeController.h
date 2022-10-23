@@ -82,6 +82,8 @@ class TTapeController
 
         const int MAX_PROGRAMM_LENGTH = 40;
         const int DELAY_SLIDE_SERVO = 80;
+        const int WAIT_FOR_SERVO = 100;
+        const int WAIT_BEFORE_FAST_WIND = 150;
 
         const int SET_CAPSTAN_MOTOR = PIN_PB3;
         const int SET_SLIDE_SERVO = PIN_PB4; 

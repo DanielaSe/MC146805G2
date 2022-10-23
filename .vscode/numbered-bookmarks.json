@@ -1,33 +1,93 @@
 {
-	"bookmarks": [
+	"files": [
 		{
-			"fsPath": "$ROOTPATH$/TTapeController.cpp",
+			"path": "TTapeController.cpp",
 			"bookmarks": [
-				-1,
-				202,
-				285,
-				-1,
-				-1,
-				-1,
-				-1,
-				-1,
-				-1,
-				-1
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": 385,
+					"column": 11
+				},
+				{
+					"line": 450,
+					"column": 16
+				},
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				}
 			]
 		},
 		{
-			"fsPath": "$ROOTPATH$/TCounter.cpp",
+			"path": "TCounter.cpp",
 			"bookmarks": [
-				-1,
-				147,
-				70,
-				-1,
-				-1,
-				-1,
-				-1,
-				-1,
-				-1,
-				-1
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": 147,
+					"column": 0
+				},
+				{
+					"line": 70,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				},
+				{
+					"line": -1,
+					"column": 0
+				}
 			]
 		}
 	]
